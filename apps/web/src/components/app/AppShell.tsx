@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Settings,
@@ -54,6 +55,7 @@ function ShellContent() {
   const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [waitingForGoTo, setWaitingForGoTo] = useState(false);
 
@@ -69,6 +71,10 @@ function ShellContent() {
     },
     [router],
   );
+
+  useEffect(() => {
+    setDetailSheetOpen(false);
+  }, [activeView]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -120,19 +126,28 @@ function ShellContent() {
     <main className="min-h-screen bg-bg text-text">
       <div className="flex min-h-screen w-full flex-col lg:flex-row">
         <aside
-          className={`hidden border-r border-border bg-surface/80 transition-[width] duration-200 ease-out lg:flex lg:flex-col ${
-            navCollapsed ? "w-[76px]" : "w-[256px]"
+          className={`hidden shrink-0 border-r border-border bg-surface/80 transition-[width] duration-200 ease-out lg:flex lg:flex-col ${
+            navCollapsed ? "w-16" : "w-64"
           }`}
         >
-          <div className="flex h-16 items-center justify-between border-b border-border px-4">
-            <BrandMark compact={navCollapsed} />
+          <div
+            className={`flex h-16 items-center border-b border-border ${
+              navCollapsed ? "justify-center px-2" : "justify-between px-4"
+            }`}
+          >
+            {navCollapsed ? null : <BrandMark />}
             <button
               type="button"
               onClick={() => setNavCollapsed((collapsed) => !collapsed)}
               className="rounded-input p-2 text-muted transition duration-150 ease-out hover:bg-surface-hover hover:text-text"
-              aria-label="Toggle navigation"
+              aria-label={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+              title={navCollapsed ? "Expand navigation" : "Collapse navigation"}
             >
-              <PanelLeftClose className="h-4 w-4" aria-hidden />
+              {navCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" aria-hidden />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" aria-hidden />
+              )}
             </button>
           </div>
 
@@ -147,12 +162,28 @@ function ShellContent() {
             ))}
           </nav>
 
-          <div className="border-t border-border p-3">
+          <div
+            className={`border-t border-border ${
+              navCollapsed ? "flex justify-center p-2" : "p-3"
+            }`}
+          >
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-card border border-border bg-bg p-3 text-left transition duration-150 ease-out hover:border-border-strong hover:bg-surface-hover"
+              className={`flex items-center rounded-card text-left transition duration-150 ease-out hover:border-border-strong hover:bg-surface-hover ${
+                navCollapsed
+                  ? "h-10 w-10 justify-center text-accent"
+                  : "w-full gap-3 border border-border bg-bg p-3"
+              }`}
+              aria-label="AI configuration"
+              title={navCollapsed ? "AI configuration" : undefined}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-card bg-accent text-accent-fg">
+              <span
+                className={`flex items-center justify-center rounded-card ${
+                  navCollapsed
+                    ? "h-8 w-8 bg-surface-hover"
+                    : "h-8 w-8 bg-accent text-accent-fg"
+                }`}
+              >
                 <Sparkles className="h-4 w-4" aria-hidden />
               </span>
               {!navCollapsed ? (
@@ -178,8 +209,14 @@ function ShellContent() {
           />
 
           <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)]">
-            <ShellListPane activeItem={activeItem} activeView={activeView} />
-            <ShellDetailPane activeItem={activeItem} activeView={activeView} />
+            <ShellListPane
+              activeItem={activeItem}
+              activeView={activeView}
+              onPreviewOpen={() => setDetailSheetOpen(true)}
+            />
+            <div className="hidden xl:block">
+              <ShellDetailPane activeItem={activeItem} activeView={activeView} />
+            </div>
           </div>
         </section>
       </div>
@@ -206,6 +243,16 @@ function ShellContent() {
       <AnimatePresence>
         {createOpen ? (
           <CreateSheet activeView={activeView} onClose={() => setCreateOpen(false)} />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {detailSheetOpen ? (
+          <ResponsiveDetailSheet
+            activeItem={activeItem}
+            activeView={activeView}
+            onClose={() => setDetailSheetOpen(false)}
+          />
         ) : null}
       </AnimatePresence>
     </main>
@@ -285,11 +332,12 @@ function NavButton({
   return (
     <Link
       href={item.href}
-      className={`group flex w-full items-center gap-3 rounded-card px-3 py-2 text-left text-[13px] transition duration-150 ease-out ${
+      title={collapsed ? item.label : undefined}
+      className={`group flex w-full items-center rounded-card py-2 text-left text-[13px] transition duration-150 ease-out ${
         active
           ? "bg-bg text-text ring-1 ring-border"
           : "text-muted hover:bg-surface-hover hover:text-text"
-      }`}
+      } ${collapsed ? "justify-center px-0" : "gap-3 px-3"}`}
       aria-current={active ? "page" : undefined}
     >
       <Icon
@@ -337,6 +385,72 @@ function MobileNav({ activeView }: { activeView: ActiveView }) {
         })}
       </div>
     </nav>
+  );
+}
+
+function ResponsiveDetailSheet({
+  activeItem,
+  activeView,
+  onClose,
+}: {
+  activeItem: NavItem;
+  activeView: ActiveView;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-40 flex justify-end bg-text/20 backdrop-blur-sm xl:hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <motion.aside
+        className="flex h-full w-full max-w-[760px] flex-col border-l border-border bg-bg shadow-elevated"
+        initial={{ x: 28, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 28, opacity: 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${activeItem.label} detail`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="flex h-14 items-center justify-between gap-4 border-b border-border px-4">
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium text-text">
+              {activeItem.label} detail
+            </p>
+            <p className="text-[12px] text-muted">Side sheet preview</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-input p-2 text-muted transition duration-150 ease-out hover:bg-surface hover:text-text"
+            aria-label="Close detail sheet"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ShellDetailPane activeItem={activeItem} activeView={activeView} />
+        </div>
+      </motion.aside>
+    </motion.div>
   );
 }
 

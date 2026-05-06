@@ -169,9 +169,11 @@ const weekSlots = [
 export function ListPane({
   activeItem,
   activeView,
+  onPreviewOpen,
 }: {
   activeItem: NavItem;
   activeView: ActiveView;
+  onPreviewOpen?: () => void;
 }) {
   const items = viewListItems[activeView];
 
@@ -212,6 +214,7 @@ export function ListPane({
             <button
               type="button"
               key={item.title}
+              onClick={onPreviewOpen}
               className={`w-full rounded-card border p-3 text-left transition duration-150 ease-out hover:border-border-strong hover:bg-bg ${
                 index === 0 ? "border-border-strong bg-bg" : "border-border bg-surface"
               }`}
