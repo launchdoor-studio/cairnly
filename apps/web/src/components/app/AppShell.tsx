@@ -11,7 +11,9 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateSheet } from "@/components/app/CreateSheet";
 import {
   DetailPane as ShellDetailPane,
@@ -24,6 +26,8 @@ import {
   type ActiveView,
   defaultNavItem,
   getCreateLabel,
+  getViewFromPath,
+  getViewHref,
   type NavItem,
   navItems,
 } from "@/lib/navigation";
@@ -46,15 +50,24 @@ export function AppShell() {
 }
 
 function ShellContent() {
-  const [activeView, setActiveView] = useState<ActiveView>("home");
+  const pathname = usePathname();
+  const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [waitingForGoTo, setWaitingForGoTo] = useState(false);
 
+  const activeView = useMemo(() => getViewFromPath(pathname), [pathname]);
   const activeItem = useMemo(
     () => navItems.find((item) => item.id === activeView) ?? defaultNavItem,
     [activeView],
+  );
+
+  const navigateTo = useCallback(
+    (view: ActiveView) => {
+      router.push(getViewHref(view));
+    },
+    [router],
   );
 
   useEffect(() => {
@@ -75,7 +88,7 @@ function ShellContent() {
         const nextView = shortcutMap[event.key.toLowerCase()];
         if (nextView) {
           event.preventDefault();
-          setActiveView(nextView);
+          navigateTo(nextView);
           setWaitingForGoTo(false);
         }
         return;
@@ -101,7 +114,7 @@ function ShellContent() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [waitingForGoTo]);
+  }, [navigateTo, waitingForGoTo]);
 
   return (
     <main className="min-h-screen bg-bg text-text">
@@ -130,7 +143,6 @@ function ShellContent() {
                 item={item}
                 active={activeView === item.id}
                 collapsed={navCollapsed}
-                onSelect={() => setActiveView(item.id)}
               />
             ))}
           </nav>
@@ -172,7 +184,7 @@ function ShellContent() {
         </section>
       </div>
 
-      <MobileNav activeView={activeView} onSelect={setActiveView} />
+      <MobileNav activeView={activeView} />
 
       <AnimatePresence>
         {commandOpen ? (
@@ -184,7 +196,7 @@ function ShellContent() {
               setCreateOpen(true);
             }}
             onSelect={(view) => {
-              setActiveView(view);
+              navigateTo(view);
               setCommandOpen(false);
             }}
           />
@@ -263,19 +275,16 @@ function NavButton({
   item,
   active,
   collapsed,
-  onSelect,
 }: {
   item: NavItem;
   active: boolean;
   collapsed: boolean;
-  onSelect: () => void;
 }) {
   const Icon = item.icon;
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <Link
+      href={item.href}
       className={`group flex w-full items-center gap-3 rounded-card px-3 py-2 text-left text-[13px] transition duration-150 ease-out ${
         active
           ? "bg-bg text-text ring-1 ring-border"
@@ -295,17 +304,11 @@ function NavButton({
           <span className="font-mono text-[11px] text-subtle">{item.shortcut}</span>
         </>
       ) : null}
-    </button>
+    </Link>
   );
 }
 
-function MobileNav({
-  activeView,
-  onSelect,
-}: {
-  activeView: ActiveView;
-  onSelect: (view: ActiveView) => void;
-}) {
+function MobileNav({ activeView }: { activeView: ActiveView }) {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/95 px-2 pb-2 pt-2 backdrop-blur lg:hidden"
@@ -317,10 +320,9 @@ function MobileNav({
           const active = activeView === item.id;
 
           return (
-            <button
-              type="button"
+            <Link
               key={item.id}
-              onClick={() => onSelect(item.id)}
+              href={item.href}
               className={`flex flex-col items-center gap-1 rounded-card px-2 py-2 text-[11px] transition duration-150 ease-out ${
                 active
                   ? "bg-surface text-text"
@@ -330,7 +332,7 @@ function MobileNav({
             >
               <Icon className={active ? "h-4 w-4 text-accent" : "h-4 w-4"} />
               {item.label}
-            </button>
+            </Link>
           );
         })}
       </div>

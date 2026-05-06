@@ -12,6 +12,7 @@ import {
 export type NavItem = {
   id: "home" | "contacts" | "deals" | "tasks" | "calendar" | "inbox";
   label: string;
+  href: "/" | "/contacts" | "/deals" | "/tasks" | "/calendar" | "/timeline";
   shortcut: string;
   description: string;
   icon: LucideIcon;
@@ -22,6 +23,7 @@ export type ActiveView = NavItem["id"];
 export const defaultNavItem: NavItem = {
   id: "home",
   label: "Dashboard",
+  href: "/",
   shortcut: "G H",
   description: "A calm view of pipeline value, work due, and recent activity.",
   icon: Home,
@@ -32,6 +34,7 @@ export const navItems: NavItem[] = [
   {
     id: "contacts",
     label: "Contacts",
+    href: "/contacts",
     shortcut: "G C",
     description: "The relationship timeline, search, notes, and custom fields.",
     icon: ContactRound,
@@ -39,6 +42,7 @@ export const navItems: NavItem[] = [
   {
     id: "deals",
     label: "Deals",
+    href: "/deals",
     shortcut: "G D",
     description: "Pipeline stages, forecast, and deal movement.",
     icon: CircleDollarSign,
@@ -46,6 +50,7 @@ export const navItems: NavItem[] = [
   {
     id: "tasks",
     label: "Tasks",
+    href: "/tasks",
     shortcut: "G T",
     description: "My Day, overdue follow-ups, and relationship-linked work.",
     icon: ListTodo,
@@ -53,6 +58,7 @@ export const navItems: NavItem[] = [
   {
     id: "calendar",
     label: "Calendar",
+    href: "/calendar",
     shortcut: "G M",
     description: "Meetings, scheduling links, and availability.",
     icon: CalendarDays,
@@ -60,6 +66,7 @@ export const navItems: NavItem[] = [
   {
     id: "inbox",
     label: "Timeline",
+    href: "/timeline",
     shortcut: "G I",
     description: "The unified event stream that backs every contact record.",
     icon: Inbox,
@@ -145,4 +152,26 @@ export function getCreateLabel(view: ActiveView) {
   };
 
   return labels[view];
+}
+
+export function getViewHref(view: ActiveView): NavItem["href"] {
+  return (navItems.find((item) => item.id === view) ?? defaultNavItem).href;
+}
+
+export function getViewFromPath(pathname: string): ActiveView {
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+
+  if (!firstSegment) {
+    return "home";
+  }
+
+  const routeMap: Record<string, ActiveView> = {
+    contacts: "contacts",
+    deals: "deals",
+    tasks: "tasks",
+    calendar: "calendar",
+    timeline: "inbox",
+  };
+
+  return routeMap[firstSegment] ?? "home";
 }
