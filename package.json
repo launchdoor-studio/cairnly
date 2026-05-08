@@ -1,11 +1,15 @@
 {
   "name": "cairnly",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.33.3",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
+    "db:generate": "pnpm --filter @cairnly/db db:generate",
+    "db:migrate": "pnpm --filter @cairnly/db db:migrate",
+    "db:seed": "pnpm --filter @cairnly/db db:seed",
     "lint": "turbo lint"
   },
   "devDependencies": {

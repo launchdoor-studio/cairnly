@@ -1,0 +1,25 @@
+{
+  "name": "@cairnly/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit && biome check .",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@cairnly/core": "workspace:*",
+    "@cairnly/db": "workspace:*",
+    "@paralleldrive/cuid2": "latest",
+    "csv-parse": "latest",
+    "@trpc/server": "latest",
+    "drizzle-orm": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  }
+}

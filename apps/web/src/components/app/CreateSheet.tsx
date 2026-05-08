@@ -2,12 +2,23 @@
 
 import { CalendarDays, Plus, X } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useRef } from "react";
-
+import { useRouter } from "next/navigation";
+import {
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import type { AppActions } from "@/lib/app-data";
+import type { ContactCreateAction } from "@/lib/contact-mutations";
 import { type ActiveView, getCreateLabel } from "@/lib/navigation";
 
 type CreateSheetProps = {
+  actions?: AppActions;
   activeView: ActiveView;
+  contactCreateAction?: ContactCreateAction;
   onClose: () => void;
 };
 
@@ -45,31 +56,59 @@ const fieldSets: Record<ActiveView, Field[]> = {
     { label: "Duration", placeholder: "30 minutes" },
     { label: "Public slug", placeholder: "discovery" },
   ],
+  automations: [
+    { label: "Action", placeholder: "Reload automations" },
+    { label: "Source file", placeholder: "automations.ts" },
+    { label: "Reason", placeholder: "Changed owner assignment rule" },
+  ],
+  reports: [
+    { label: "Report", placeholder: "Pipeline by stage" },
+    { label: "Date range", placeholder: "Last 30 days" },
+    { label: "Format", placeholder: "CSV" },
+  ],
   inbox: [
     { label: "Event type", placeholder: "Note, call, email, form submission" },
     { label: "Related contact", placeholder: "Search contacts" },
     { label: "Summary", placeholder: "What happened?" },
   ],
+  settings: [
+    { label: "Workspace name", placeholder: "Launchdoor" },
+    { label: "Domain", placeholder: "cairnly.app" },
+    { label: "Admin email", placeholder: "admin@example.com", type: "email" },
+  ],
 };
 
 const helperCopy: Record<ActiveView, string> = {
-  home: "Start from the command layer when the user is not already in a specific workflow.",
-  contacts:
-    "Contact creation should eventually write the contact and the first timeline event together.",
-  deals:
-    "Deal creation will link a contact, default pipeline, starting stage, owner, and audit event.",
-  tasks:
-    "Tasks stay lightweight and relationship-aware instead of becoming project management.",
-  calendar:
-    "Scheduling links are first-class v1 objects with availability and conflict checking later.",
-  inbox:
-    "Manual event logging feeds the same append-only event stream as integrations.",
+  home: "Quick create when you are not already in a specific screen.",
+  contacts: "Creates a contact; a timeline entry can be added on save.",
+  deals: "Creates a deal with pipeline, stage, owner, and amount as configured.",
+  tasks: "Creates a task; optional link to a contact or deal.",
+  calendar: "Defines a scheduling link slug, duration, and event type.",
+  automations:
+    "Reload reads the automation module; there is no visual rule builder here.",
+  reports: "Choosing a report prepares a CSV export for the selected range.",
+  inbox: "Appends an event to the workspace log (and contact timeline when linked).",
+  settings: "Workspace metadata; external services stay optional.",
 };
 
-export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
+export function CreateSheet({
+  actions,
+  activeView,
+  contactCreateAction,
+  onClose,
+}: CreateSheetProps) {
+  const router = useRouter();
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const [message, setMessage] = useState<string | undefined>();
+  const [isPending, startTransition] = useTransition();
   const fields = fieldSets[activeView];
   const title = getCreateLabel(activeView);
+  const canPersistContact = activeView === "contacts" && contactCreateAction;
+  const canPersist =
+    canPersistContact ||
+    (activeView === "deals" && actions?.createDeal) ||
+    (activeView === "tasks" && actions?.createTask) ||
+    (activeView === "inbox" && actions?.createEvent);
 
   const submitLabel = useMemo(() => {
     if (activeView === "calendar") {
@@ -80,8 +119,95 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
       return "Draft event";
     }
 
+    if (activeView === "reports") {
+      return "Prepare export";
+    }
+
+    if (activeView === "automations") {
+      return "Draft reload";
+    }
+
+    if (activeView === "settings") {
+      return "Save draft";
+    }
+
     return `Draft ${title.toLowerCase()}`;
   }, [activeView, title]);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!canPersist) {
+      setMessage("This flow is still draft-only for this section.");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const dealTitle = String(formData.get("deal-title") ?? "").trim();
+    const taskTitle = String(formData.get("task") ?? "").trim();
+    const primaryEmail = String(formData.get("email") ?? "").trim();
+    const company = String(formData.get("company") ?? "").trim();
+    const source = String(formData.get("source") ?? "").trim();
+    const amount = Number(formData.get("amount") ?? 0);
+    const expectedClose = String(formData.get("expected-close") ?? "").trim();
+    const due = String(formData.get("due") ?? "").trim();
+    const eventType = String(formData.get("event-type") ?? "manual_note").trim();
+    const summary = String(formData.get("summary") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim();
+
+    if (activeView === "contacts" && !name) {
+      setMessage("Add a name before creating the contact.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result =
+        activeView === "contacts" && contactCreateAction
+          ? await contactCreateAction({
+              type: "person",
+              name,
+              primaryEmail: primaryEmail || undefined,
+              score: "unknown",
+              customFields: {
+                ...(company ? { company } : {}),
+                ...(source ? { source } : {}),
+              },
+            })
+          : activeView === "deals" && actions?.createDeal
+            ? await actions.createDeal({
+                title: dealTitle,
+                amountCents: Number.isFinite(amount) ? Math.round(amount * 100) : 0,
+                currency: "USD",
+                expectedCloseDate: expectedClose || undefined,
+                position: 0,
+                status: "open",
+              })
+            : activeView === "tasks" && actions?.createTask
+              ? await actions.createTask({
+                  title: taskTitle,
+                  dueAt: due ? new Date(due) : undefined,
+                  description: notes || undefined,
+                })
+              : activeView === "inbox" && actions?.createEvent
+                ? await actions.createEvent({
+                    type: eventType || "manual_note",
+                    payload: { summary: summary || notes || "Manual event" },
+                  })
+                : {
+                    ok: false as const,
+                    message: "No mutation is wired for this view.",
+                  };
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      router.refresh();
+      onClose();
+    });
+  }
 
   useEffect(() => {
     firstInputRef.current?.focus();
@@ -140,7 +266,7 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={onSubmit} id="create-sheet-form">
             {fields.map((field, index) => (
               <label key={field.label} className="block">
                 <span className="text-[12px] font-medium text-muted">
@@ -148,6 +274,7 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
                 </span>
                 <input
                   ref={index === 0 ? firstInputRef : undefined}
+                  name={field.label.toLowerCase().replaceAll(" ", "-")}
                   type={field.type ?? "text"}
                   placeholder={field.placeholder}
                   className="mt-1 h-10 w-full rounded-input border border-border bg-surface px-3 text-[13px] text-text outline-none transition duration-150 ease-out placeholder:text-subtle focus:border-border-strong focus:ring-2 focus:ring-ring"
@@ -158,7 +285,8 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
             <label className="block">
               <span className="text-[12px] font-medium text-muted">Notes</span>
               <textarea
-                placeholder="Add context for the relationship timeline"
+                name="notes"
+                placeholder="Add a note for the timeline"
                 className="mt-1 min-h-28 w-full resize-none rounded-input border border-border bg-surface px-3 py-2 text-[13px] text-text outline-none transition duration-150 ease-out placeholder:text-subtle focus:border-border-strong focus:ring-2 focus:ring-ring"
               />
             </label>
@@ -169,16 +297,17 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
               <CalendarDays className="mt-0.5 h-4 w-4 text-accent" aria-hidden />
               <div>
                 <p className="text-[13px] font-medium text-text">
-                  No backend write yet
+                  {canPersist ? "Writes through the domain API" : "Draft-only flow"}
                 </p>
                 <p className="mt-1 text-[12px] text-muted">
-                  This sheet establishes the interaction pattern. Persistence,
-                  validation, optimistic updates, and event logging will be wired when
-                  the domain layer exists.
+                  {canPersist
+                    ? "This action validates through Zod, persists with Drizzle, and records timeline context where appropriate."
+                    : "This sheet keeps the interaction pattern ready while the matching domain layer is still being built."}
                 </p>
               </div>
             </div>
           </div>
+          {message ? <p className="mt-3 text-[13px] text-muted">{message}</p> : null}
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-border p-4">
@@ -190,11 +319,17 @@ export function CreateSheet({ activeView, onClose }: CreateSheetProps) {
             Cancel
           </button>
           <button
-            type="button"
+            type="submit"
+            form="create-sheet-form"
+            disabled={isPending}
             className="inline-flex items-center gap-2 rounded-input bg-accent px-3 py-2 text-[13px] font-medium text-accent-fg transition duration-150 ease-out hover:bg-accent-hover"
           >
             <Plus className="h-4 w-4" aria-hidden />
-            {submitLabel}
+            {isPending
+              ? "Saving..."
+              : canPersist
+                ? submitLabel.replace("Draft", "Create")
+                : submitLabel}
           </button>
         </footer>
       </motion.aside>

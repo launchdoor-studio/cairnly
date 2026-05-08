@@ -1,5 +1,6 @@
 "use client";
 
+import type { ContactDto, ReportExportJobDto, ReportId } from "@cairnly/core";
 import {
   ArrowRight,
   Bell,
@@ -23,6 +24,9 @@ import {
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import type { AppActions, AppData } from "@/lib/app-data";
+import type { DashboardSummary } from "@/lib/dashboard-summary";
+import type { ContactCreateAction, ContactUpdateAction } from "@/lib/contact-mutations";
 import {
   type ActiveView,
   defaultNavItem,
@@ -31,6 +35,7 @@ import {
   getViewHref,
   type NavItem,
   navItems,
+  settingsNavItem,
 } from "@/lib/navigation";
 
 const shortcutMap: Record<string, ActiveView> = {
@@ -39,18 +44,75 @@ const shortcutMap: Record<string, ActiveView> = {
   d: "deals",
   t: "tasks",
   m: "calendar",
+  a: "automations",
+  r: "reports",
   i: "inbox",
+  s: "settings",
 };
 
-export function AppShell() {
+type ShellData = {
+  contacts?: ContactDto[];
+};
+
+type ReportExportBundle = {
+  jobs: ReportExportJobDto[];
+  onExport: (
+    reportId: ReportId,
+  ) => Promise<
+    | { ok: true; csv: string; filename: string; jobId: string }
+    | { ok: false; message: string }
+  >;
+};
+
+export function AppShell({
+  actions,
+  appData,
+  contactCreateAction,
+  contactUpdateAction,
+  dashboard,
+  data,
+  reportExport,
+}: {
+  actions?: AppActions;
+  appData?: AppData;
+  contactCreateAction?: ContactCreateAction;
+  contactUpdateAction?: ContactUpdateAction;
+  dashboard?: DashboardSummary;
+  data?: ShellData;
+  reportExport?: ReportExportBundle;
+}) {
   return (
     <ThemeProvider>
-      <ShellContent />
+      <ShellContent
+        actions={actions}
+        appData={appData}
+        contactCreateAction={contactCreateAction}
+        contactUpdateAction={contactUpdateAction}
+        dashboard={dashboard}
+        data={data}
+        reportExport={reportExport}
+      />
     </ThemeProvider>
   );
 }
 
-function ShellContent() {
+function ShellContent({
+  actions,
+  appData,
+  contactCreateAction,
+  contactUpdateAction,
+  dashboard,
+  data,
+  reportExport,
+}: {
+  actions?: AppActions;
+  appData?: AppData;
+  contactCreateAction?: ContactCreateAction;
+  contactUpdateAction?: ContactUpdateAction;
+  dashboard?: DashboardSummary;
+  data?: ShellData;
+  reportExport?: ReportExportBundle;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -61,7 +123,10 @@ function ShellContent() {
 
   const activeView = useMemo(() => getViewFromPath(pathname), [pathname]);
   const activeItem = useMemo(
-    () => navItems.find((item) => item.id === activeView) ?? defaultNavItem,
+    () =>
+      activeView === "settings"
+        ? settingsNavItem
+        : (navItems.find((item) => item.id === activeView) ?? defaultNavItem),
     [activeView],
   );
 
@@ -167,15 +232,15 @@ function ShellContent() {
               navCollapsed ? "flex justify-center p-2" : "p-3"
             }`}
           >
-            <button
-              type="button"
+            <Link
+              href="/settings"
               className={`flex items-center rounded-card text-left transition duration-150 ease-out hover:border-border-strong hover:bg-surface-hover ${
                 navCollapsed
                   ? "h-10 w-10 justify-center text-accent"
                   : "w-full gap-3 border border-border bg-bg p-3"
               }`}
-              aria-label="AI configuration"
-              title={navCollapsed ? "AI configuration" : undefined}
+              aria-label="AI settings"
+              title={navCollapsed ? "AI settings" : undefined}
             >
               <span
                 className={`flex items-center justify-center rounded-card ${
@@ -189,14 +254,14 @@ function ShellContent() {
               {!navCollapsed ? (
                 <span className="min-w-0">
                   <span className="block text-[13px] font-medium text-text">
-                    AI is opt-in
+                    AI settings
                   </span>
                   <span className="block truncate text-[12px] text-muted">
-                    Configure local, BYO key, or off.
+                    Local model, API key, or disabled.
                   </span>
                 </span>
               ) : null}
-            </button>
+            </Link>
           </div>
         </aside>
 
@@ -212,10 +277,22 @@ function ShellContent() {
             <ShellListPane
               activeItem={activeItem}
               activeView={activeView}
+              appData={appData}
+              dashboard={dashboard}
+              data={data}
               onPreviewOpen={() => setDetailSheetOpen(true)}
             />
             <div className="hidden xl:block">
-              <ShellDetailPane activeItem={activeItem} activeView={activeView} />
+              <ShellDetailPane
+                activeItem={activeItem}
+                activeView={activeView}
+                actions={actions}
+                appData={appData}
+                contactUpdateAction={contactUpdateAction}
+                dashboard={dashboard}
+                data={data}
+                reportExport={reportExport}
+              />
             </div>
           </div>
         </section>
@@ -242,7 +319,12 @@ function ShellContent() {
 
       <AnimatePresence>
         {createOpen ? (
-          <CreateSheet activeView={activeView} onClose={() => setCreateOpen(false)} />
+          <CreateSheet
+            actions={actions}
+            activeView={activeView}
+            contactCreateAction={contactCreateAction}
+            onClose={() => setCreateOpen(false)}
+          />
         ) : null}
       </AnimatePresence>
 
@@ -251,6 +333,12 @@ function ShellContent() {
           <ResponsiveDetailSheet
             activeItem={activeItem}
             activeView={activeView}
+            actions={actions}
+            appData={appData}
+            contactUpdateAction={contactUpdateAction}
+            dashboard={dashboard}
+            data={data}
+            reportExport={reportExport}
             onClose={() => setDetailSheetOpen(false)}
           />
         ) : null}
@@ -277,7 +365,7 @@ function TopBar({
           <BrandMark compact />
         </div>
         <div className="hidden min-w-0 sm:block">
-          <p className="text-[12px] text-muted">Launchdoor workspace</p>
+          <p className="text-[12px] text-muted">Workspace</p>
           <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-text">
             {activeItem.label}
           </h1>
@@ -290,13 +378,21 @@ function TopBar({
         className="hidden h-9 min-w-[260px] items-center gap-2 rounded-input border border-border bg-surface px-3 text-left text-[13px] text-muted transition duration-150 ease-out hover:border-border-strong hover:bg-surface-hover md:flex"
       >
         <Search className="h-4 w-4" aria-hidden />
-        Search, create, or run a command
+        Search workspace…
         <span className="ml-auto rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-[11px] text-subtle">
           Cmd K
         </span>
       </button>
 
       <ThemeToggle />
+
+      <Link
+        href="/settings"
+        className="hidden h-9 w-9 items-center justify-center rounded-input border border-border bg-bg text-muted transition duration-150 ease-out hover:border-border-strong hover:bg-surface-hover hover:text-text sm:inline-flex"
+        aria-label="Settings"
+      >
+        <Settings className="h-4 w-4" aria-hidden />
+      </Link>
 
       <button
         type="button"
@@ -389,12 +485,24 @@ function MobileNav({ activeView }: { activeView: ActiveView }) {
 }
 
 function ResponsiveDetailSheet({
+  actions,
   activeItem,
   activeView,
+  appData,
+  contactUpdateAction,
+  dashboard,
+  data,
+  reportExport,
   onClose,
 }: {
+  actions?: AppActions;
   activeItem: NavItem;
   activeView: ActiveView;
+  appData?: AppData;
+  contactUpdateAction?: ContactUpdateAction;
+  dashboard?: DashboardSummary;
+  data?: ShellData;
+  reportExport?: ReportExportBundle;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -434,7 +542,7 @@ function ResponsiveDetailSheet({
             <p className="truncate text-[13px] font-medium text-text">
               {activeItem.label} detail
             </p>
-            <p className="text-[12px] text-muted">Side sheet preview</p>
+            <p className="text-[12px] text-muted">Detail drawer</p>
           </div>
           <button
             type="button"
@@ -447,7 +555,16 @@ function ResponsiveDetailSheet({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <ShellDetailPane activeItem={activeItem} activeView={activeView} />
+          <ShellDetailPane
+            activeItem={activeItem}
+            activeView={activeView}
+            actions={actions}
+            appData={appData}
+            contactUpdateAction={contactUpdateAction}
+            dashboard={dashboard}
+            data={data}
+            reportExport={reportExport}
+          />
         </div>
       </motion.aside>
     </motion.div>
@@ -507,7 +624,7 @@ function CommandPalette({
           <Search className="h-4 w-4 text-subtle" aria-hidden />
           <input
             ref={inputRef}
-            placeholder="Jump to a view or create something..."
+            placeholder="Go to a view…"
             className="h-9 min-w-0 flex-1 bg-transparent text-[14px] text-text outline-none placeholder:text-subtle"
           />
           <button
@@ -521,7 +638,7 @@ function CommandPalette({
         </div>
 
         <div className="p-2">
-          {navItems.map((item) => {
+          {[...navItems, settingsNavItem].map((item) => {
             const Icon = item.icon;
             const active = activeView === item.id;
 
@@ -568,10 +685,10 @@ function CommandPalette({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-medium text-text">
-                  Create contextual record
+                  Create…
                 </span>
                 <span className="block text-[12px] text-muted">
-                  This becomes contact, deal, task, or event creation later.
+                  Opens the create panel for the current screen (C).
                 </span>
               </span>
               <Settings className="h-4 w-4 text-subtle" aria-hidden />
