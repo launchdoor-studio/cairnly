@@ -1,4 +1,5 @@
 import { stderr } from "node:process";
+import { processEmailImapSyncAllJob } from "@cairnly/api/jobs/email-imap-worker";
 import {
   processReportExportBossJob,
   type ReportExportBossPayload,
@@ -7,8 +8,9 @@ import { createDb } from "@cairnly/db";
 import { PgBoss } from "pg-boss";
 
 const QUEUE_REPORT_EXPORT = "cairnly.report.export";
+const QUEUE_EMAIL_IMAP_SYNC_ALL = "cairnly.email.imap_sync_all";
 
-export { QUEUE_REPORT_EXPORT };
+export { QUEUE_EMAIL_IMAP_SYNC_ALL, QUEUE_REPORT_EXPORT };
 
 let bossInstance: PgBoss | null = null;
 let shutdownStarted = false;
@@ -68,6 +70,7 @@ export async function startPgBossWorkers(): Promise<void> {
 
   await boss.start();
   await boss.createQueue(QUEUE_REPORT_EXPORT);
+  await boss.createQueue(QUEUE_EMAIL_IMAP_SYNC_ALL);
 
   const db = createDb({ connectionString, max: 4 });
 
@@ -76,6 +79,14 @@ export async function startPgBossWorkers(): Promise<void> {
       await processReportExportBossJob(db, job.data as ReportExportBossPayload);
     }
   });
+
+  await boss.work(QUEUE_EMAIL_IMAP_SYNC_ALL, { localConcurrency: 1 }, async () => {
+    await processEmailImapSyncAllJob(db);
+  });
+
+  if (process.env.CAIRNLY_DISABLE_IMAP_SYNC !== "1") {
+    await boss.schedule(QUEUE_EMAIL_IMAP_SYNC_ALL, "*/5 * * * *", {}, { tz: "UTC" });
+  }
 
   bossInstance = boss;
   shutdownStarted = false;

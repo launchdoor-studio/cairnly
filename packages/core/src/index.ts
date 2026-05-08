@@ -2,6 +2,7 @@ export * from "./constants";
 export * from "./contact";
 export * from "./contact-import";
 export * from "./deal";
+export * from "./email";
 export * from "./event";
 export * from "./lead-form";
 export * from "./note";

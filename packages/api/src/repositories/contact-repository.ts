@@ -1,6 +1,6 @@
 import type { ContactCreateInput, ContactListInput } from "@cairnly/core";
 import { contacts, type Db, events } from "@cairnly/db";
-import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 
 type ContactInsert = typeof contacts.$inferInsert;
 
@@ -10,6 +10,10 @@ export type ContactRepository = {
     workspaceId: string;
   }): Promise<Pick<ContactRow, "id" | "name" | "primaryEmail">[]>;
   findById(input: { id: string; workspaceId: string }): Promise<ContactRow | undefined>;
+  findByPrimaryEmail(input: {
+    workspaceId: string;
+    email: string;
+  }): Promise<ContactRow | undefined>;
   create(input: ContactInsert): Promise<ContactRow>;
   update(input: {
     id: string;
@@ -75,6 +79,23 @@ export function createContactRepository(db: Db): ContactRepository {
             eq(contacts.id, id),
             eq(contacts.workspaceId, workspaceId),
             isNull(contacts.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      return contact;
+    },
+
+    async findByPrimaryEmail({ workspaceId, email }) {
+      const normalized = email.trim().toLowerCase();
+      const [contact] = await db
+        .select()
+        .from(contacts)
+        .where(
+          and(
+            eq(contacts.workspaceId, workspaceId),
+            isNull(contacts.deletedAt),
+            sql`lower(${contacts.primaryEmail}) = ${normalized}`,
           ),
         )
         .limit(1);

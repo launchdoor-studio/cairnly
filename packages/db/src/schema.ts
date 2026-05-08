@@ -539,13 +539,17 @@ export const emailMessages = pgTable(
     accountId: id("account_id")
       .notNull()
       .references(() => emailAccounts.id),
+    contactId: id("contact_id").references(() => contacts.id),
     messageId: text("message_id").notNull(),
     inReplyTo: text("in_reply_to"),
+    threadRootMessageId: text("thread_root_message_id"),
+    referencesHeader: text("references_header"),
     subject: text("subject").notNull(),
     fromAddr: text("from_addr").notNull(),
     toAddrs: jsonb("to_addrs").$type<string[]>().notNull(),
     bodyText: text("body_text"),
     bodyHtml: text("body_html"),
+    trackingToken: text("tracking_token"),
     receivedAt: timestamp("received_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },
@@ -554,7 +558,9 @@ export const emailMessages = pgTable(
       table.accountId,
       table.messageId,
     ),
+    uniqueIndex("email_message_tracking_token_unique").on(table.trackingToken),
     index("email_message_workspace_idx").on(table.workspaceId),
+    index("email_message_contact_workspace_idx").on(table.contactId, table.workspaceId),
   ],
 );
 

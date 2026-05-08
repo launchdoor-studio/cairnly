@@ -1,6 +1,12 @@
 "use client";
 
-import type { ContactDto, ReportExportJobDto, ReportId } from "@cairnly/core";
+import type {
+  ContactDto,
+  EmailThreadDto,
+  EventDto,
+  ReportExportJobDto,
+  ReportId,
+} from "@cairnly/core";
 import {
   ArrowRight,
   Bell,
@@ -52,6 +58,10 @@ const shortcutMap: Record<string, ActiveView> = {
 
 type ShellData = {
   contacts?: ContactDto[];
+  contactTimeline?: {
+    events: EventDto[];
+    emailThreads: EmailThreadDto[];
+  };
 };
 
 type ReportExportBundle = {

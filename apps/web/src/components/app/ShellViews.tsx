@@ -4,6 +4,7 @@ import {
   type ContactDto,
   type DealDto,
   type DealUpdateInput,
+  type EmailThreadDto,
   type EventDto,
   type NoteDto,
   REPORT_DEFINITIONS,
@@ -68,6 +69,10 @@ type PreviewListItem = {
 
 type ShellData = {
   contacts?: ContactDto[];
+  contactTimeline?: {
+    events: EventDto[];
+    emailThreads: EmailThreadDto[];
+  };
 };
 
 type ShellReportExport = {
@@ -232,24 +237,6 @@ const contactFields = [
   ["Score", "Hot"],
 ] as const;
 
-const contactTimeline = [
-  {
-    title: "Email reply",
-    body: "Asked for a migration plan and timeline before Friday.",
-    time: "4m ago",
-  },
-  {
-    title: "Discovery call",
-    body: "Discussed requirements, timeline, and preferred meeting cadence.",
-    time: "Yesterday",
-  },
-  {
-    title: "Form submission",
-    body: "Came in through the public lead capture endpoint.",
-    time: "May 3",
-  },
-] as const;
-
 const taskGroups = [
   {
     label: "My Day",
@@ -381,6 +368,64 @@ function formatDateTime(date: Date | string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(date));
+}
+
+function emailMessageSortTime(m: EmailThreadDto["messages"][number]): number {
+  const a = m.sentAt ?? m.receivedAt;
+  return a ? new Date(a).getTime() : 0;
+}
+
+function stripHtmlPreview(html: string, maxLen = 280): string {
+  const text = html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= maxLen) {
+    return text;
+  }
+  return `${text.slice(0, maxLen - 1)}…`;
+}
+
+type ContactTimelineMerged =
+  | {
+      kind: "event";
+      id: string;
+      sortAt: number;
+      event: EventDto;
+    }
+  | {
+      kind: "thread";
+      id: string;
+      sortAt: number;
+      thread: EmailThreadDto;
+    };
+
+function mergeContactTimeline(
+  events: EventDto[],
+  threads: EmailThreadDto[],
+): ContactTimelineMerged[] {
+  const merged: ContactTimelineMerged[] = [];
+
+  for (const event of events) {
+    merged.push({
+      kind: "event",
+      id: event.id,
+      sortAt: new Date(event.createdAt).getTime(),
+      event,
+    });
+  }
+
+  for (const thread of threads) {
+    merged.push({
+      kind: "thread",
+      id: thread.threadRootMessageId,
+      sortAt: new Date(thread.latestAt).getTime(),
+      thread,
+    });
+  }
+
+  merged.sort((a, b) => b.sortAt - a.sortAt);
+  return merged;
 }
 
 function formatTime(date: Date | string) {
@@ -550,6 +595,7 @@ export function DetailPane({
           <ContactView
             contactUpdateAction={contactUpdateAction}
             contacts={data?.contacts}
+            contactTimeline={data?.contactTimeline}
           />
         ) : null}
         {activeView === "deals" ? (
@@ -639,14 +685,22 @@ function DashboardView({
 function ContactView({
   contactUpdateAction,
   contacts = [],
+  contactTimeline,
 }: {
   contactUpdateAction?: ContactUpdateAction;
   contacts?: ContactDto[];
+  contactTimeline?: { events: EventDto[]; emailThreads: EmailThreadDto[] };
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | undefined>();
   const [isPending, startTransition] = useTransition();
   const contact = contacts[0];
+  const events = contactTimeline?.events ?? [];
+  const emailThreads = contactTimeline?.emailThreads ?? [];
+  const mergedTimeline =
+    contact && (events.length > 0 || emailThreads.length > 0)
+      ? mergeContactTimeline(events, emailThreads)
+      : [];
   const fields = contact
     ? [
         ["Primary email", contact.primaryEmail ?? "Not set"],
@@ -722,15 +776,75 @@ function ContactView({
         </div>
 
         <div className="divide-y divide-border">
-          {contactTimeline.map((event) => (
-            <div key={event.title} className="grid gap-3 p-5 md:grid-cols-[120px_1fr]">
-              <p className="text-[12px] text-subtle">{event.time}</p>
-              <div>
-                <p className="text-[13px] font-medium text-text">{event.title}</p>
-                <p className="mt-1 text-[13px] text-muted">{event.body}</p>
-              </div>
+          {mergedTimeline.length ? (
+            mergedTimeline.map((item) =>
+              item.kind === "event" ? (
+                <div
+                  key={`e-${item.event.id}`}
+                  className="grid gap-3 p-5 md:grid-cols-[120px_1fr]"
+                >
+                  <p className="text-[12px] text-subtle">
+                    {formatDateTime(item.event.createdAt)}
+                  </p>
+                  <div>
+                    <p className="text-[13px] font-medium text-text">
+                      {typeof item.event.payload.summary === "string"
+                        ? item.event.payload.summary
+                        : item.event.type}
+                    </p>
+                    <p className="mt-1 text-[13px] text-muted">{item.event.type}</p>
+                  </div>
+                </div>
+              ) : (
+                <div key={`t-${item.thread.threadRootMessageId}`} className="p-5">
+                  <div className="grid gap-3 md:grid-cols-[120px_1fr]">
+                    <p className="text-[12px] text-subtle">
+                      {formatDateTime(item.thread.latestAt)}
+                    </p>
+                    <div>
+                      <p className="text-[13px] font-medium text-text">
+                        Email · {item.thread.subject}
+                      </p>
+                      <p className="mt-1 text-[13px] text-muted">
+                        {item.thread.messages.length} message
+                        {item.thread.messages.length === 1 ? "" : "s"} in thread
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3 border-l border-border pl-4 md:ml-[120px]">
+                    {[...item.thread.messages]
+                      .sort((a, b) => emailMessageSortTime(a) - emailMessageSortTime(b))
+                      .map((m) => {
+                        const when = m.sentAt ?? m.receivedAt;
+                        const preview =
+                          m.bodyText?.trim() ??
+                          (m.bodyHtml ? stripHtmlPreview(String(m.bodyHtml)) : "—");
+                        return (
+                          <div key={m.id} className="grid gap-1">
+                            <p className="text-[12px] text-subtle">
+                              {when ? formatDateTime(when) : "—"} · {m.fromAddr}
+                              {m.toAddrs.length ? ` → ${m.toAddrs.join(", ")}` : ""}
+                            </p>
+                            <p className="text-[12px] font-medium text-text">
+                              {m.subject}
+                            </p>
+                            <p className="text-[13px] text-muted">{preview}</p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              ),
+            )
+          ) : (
+            <div className="p-5">
+              <p className="text-[13px] text-muted">
+                {contact
+                  ? "No timeline activity for this contact yet. Events, synced email, and form submissions will appear here."
+                  : "Select a workspace contact to load fields and timeline activity."}
+              </p>
             </div>
-          ))}
+          )}
         </div>
       </article>
 
