@@ -14,6 +14,17 @@ else
   exit 1
 fi
 
+if [ "${1:-}" = "upgrade" ]; then
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "Missing .env — run ./docker/install.sh once first." >&2
+    exit 1
+  fi
+  $COMPOSE --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+  echo
+  echo "Upgrade complete."
+  exit 0
+fi
+
 secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 24
@@ -45,3 +56,11 @@ echo
 echo "Cairnly is starting."
 echo "URL: http://localhost"
 echo "Health: http://localhost/healthz"
+echo
+echo "Admin CLI (from repo root, with DATABASE_URL or host networking to Postgres):"
+echo "  pnpm run crm -- migrate"
+echo "  pnpm run crm -- backup"
+echo "  pnpm run crm -- health"
+echo
+echo "Daily Postgres backup (host cron, 7-day retention) — example:"
+echo "  0 3 * * * CAIRNLY_BACKUP_DIR=$ROOT_DIR/backups $ROOT_DIR/docker/backup-cairnly.sh"

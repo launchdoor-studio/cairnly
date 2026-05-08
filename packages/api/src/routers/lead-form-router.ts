@@ -1,9 +1,6 @@
-import {
-  leadFormSubmitInputSchema,
-  leadFormSubmitOutputSchema,
-} from "@cairnly/core";
+import { leadFormSubmitInputSchema, leadFormSubmitOutputSchema } from "@cairnly/core";
 import { TRPCError } from "@trpc/server";
-
+import { checkPublicSubmissionRate } from "../public-submission-rate-limit";
 import { createContactRepository } from "../repositories/contact-repository";
 import { createFormRepository } from "../repositories/form-repository";
 import { createLeadFormService } from "../services/lead-form-service";
@@ -14,6 +11,11 @@ export const leadFormRouter = router({
     .input(leadFormSubmitInputSchema)
     .output(leadFormSubmitOutputSchema)
     .mutation(async ({ ctx, input }) => {
+      const rate = checkPublicSubmissionRate(ctx.requestHeaders, "lead_form");
+      if (!rate.ok) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: rate.message });
+      }
+
       const service = createLeadFormService(
         createFormRepository(ctx.db),
         createContactRepository(ctx.db),

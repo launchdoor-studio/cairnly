@@ -1,0 +1,140 @@
+import { stderr } from "node:process";
+import {
+  processReportExportBossJob,
+  type ReportExportBossPayload,
+} from "@cairnly/api/jobs/report-export-worker";
+import { createDb } from "@cairnly/db";
+import { PgBoss } from "pg-boss";
+
+const QUEUE_REPORT_EXPORT = "cairnly.report.export";
+
+export { QUEUE_REPORT_EXPORT };
+
+let bossInstance: PgBoss | null = null;
+let shutdownStarted = false;
+
+async function shutdownBoss(reason: string): Promise<void> {
+  if (shutdownStarted || !bossInstance) {
+    return;
+  }
+  shutdownStarted = true;
+  const b = bossInstance;
+  bossInstance = null;
+  try {
+    await b.stop({ graceful: true, timeout: 25_000 });
+  } catch (error) {
+    stderr.write(
+      `[cairnly-jobs] pg-boss shutdown after ${reason} failed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+  }
+}
+
+function registerProcessShutdown(): void {
+  const onSignal = (signal: NodeJS.Signals) => {
+    void shutdownBoss(signal);
+  };
+  process.once("SIGTERM", () => onSignal("SIGTERM"));
+  process.once("SIGINT", () => onSignal("SIGINT"));
+}
+
+/**
+ * Starts pg-boss alongside the web process and registers workers.
+ * Skips entirely when `DATABASE_URL` is missing or `CAIRNLY_DISABLE_JOB_WORKERS=1`.
+ */
+export async function startPgBossWorkers(): Promise<void> {
+  if (process.env.CAIRNLY_DISABLE_JOB_WORKERS === "1") {
+    return;
+  }
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    return;
+  }
+
+  if (bossInstance) {
+    return;
+  }
+
+  const boss = new PgBoss({
+    connectionString,
+    application_name: "cairnly-jobs",
+  });
+
+  boss.on("error", (err) => {
+    stderr.write(
+      `[cairnly-jobs] pg-boss error: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+  });
+
+  await boss.start();
+  await boss.createQueue(QUEUE_REPORT_EXPORT);
+
+  const db = createDb({ connectionString, max: 4 });
+
+  await boss.work(QUEUE_REPORT_EXPORT, { localConcurrency: 2 }, async (jobs) => {
+    for (const job of jobs) {
+      await processReportExportBossJob(db, job.data as ReportExportBossPayload);
+    }
+  });
+
+  bossInstance = boss;
+  shutdownStarted = false;
+  registerProcessShutdown();
+}
+
+export function getBossInstance(): PgBoss | null {
+  return bossInstance;
+}
+
+/**
+ * Enqueue a report export that already has a pending `export_job` row.
+ * Callers (e.g. a future async router) create the row first, then enqueue.
+ */
+export async function enqueueReportExportJob(input: {
+  exportJobId: string;
+  workspaceId: string;
+}): Promise<string | null> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required to enqueue jobs.");
+  }
+
+  const boss =
+    bossInstance ??
+    new PgBoss({
+      connectionString,
+      application_name: "cairnly-jobs-cli",
+    });
+  const startedHere = !bossInstance;
+  if (startedHere) {
+    await boss.start();
+    await boss.createQueue(QUEUE_REPORT_EXPORT);
+  }
+
+  try {
+    return await boss.send(QUEUE_REPORT_EXPORT, {
+      exportJobId: input.exportJobId,
+      workspaceId: input.workspaceId,
+    });
+  } finally {
+    if (startedHere) {
+      await boss.stop({ graceful: false, timeout: 5_000 });
+    }
+  }
+}
+
+/**
+ * Verifies pg-boss can start and apply its schema (operators / CI).
+ */
+export async function runPgBossProbe(connectionString: string): Promise<void> {
+  const boss = new PgBoss({
+    connectionString,
+    application_name: "cairnly-jobs-probe",
+  });
+  await boss.start();
+  const version = await boss.schemaVersion();
+  if (version == null) {
+    throw new Error("pg-boss schema was not installed.");
+  }
+  await boss.stop({ graceful: true, timeout: 10_000 });
+}

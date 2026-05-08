@@ -1,6 +1,7 @@
 "use server";
 
 import type { BookingCreateInput } from "@cairnly/core";
+import { TRPCError } from "@trpc/server";
 import { revalidatePath } from "next/cache";
 
 import type { MutationResult } from "@/lib/app-data";
@@ -20,7 +21,14 @@ export async function createBookingAction(
     revalidatePath(`/m/${input.slug}`);
     revalidatePath("/calendar");
     return { ok: true };
-  } catch {
+  } catch (cause) {
+    if (cause instanceof TRPCError && cause.code === "TOO_MANY_REQUESTS") {
+      return {
+        ok: false,
+        message: cause.message || "Too many bookings. Try again later.",
+      };
+    }
+
     return { ok: false, message: "This time is no longer available." };
   }
 }

@@ -1,4 +1,4 @@
-import { type LeadFormSubmitInput, err, ok, type Result } from "@cairnly/core";
+import { err, type LeadFormSubmitInput, ok, type Result } from "@cairnly/core";
 import { createId } from "@paralleldrive/cuid2";
 
 import type { ContactRepository } from "../repositories/contact-repository";
@@ -20,7 +20,9 @@ export function createLeadFormService(
   contactsRepo: ContactRepository,
 ) {
   return {
-    async submit(input: LeadFormSubmitInput): Promise<Result<{ ok: true }, LeadFormError>> {
+    async submit(
+      input: LeadFormSubmitInput,
+    ): Promise<Result<{ ok: true }, LeadFormError>> {
       if (input.website != null && input.website.trim().length > 0) {
         return ok({ ok: true });
       }

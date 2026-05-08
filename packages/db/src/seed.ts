@@ -23,6 +23,8 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required to seed Cairnly.");
 }
 
+// Inserts a public `form` row for slug `intake` (used by `/f/intake`). From repo root: `pnpm db:seed`.
+
 const client = postgres(connectionString, { max: 1, prepare: false });
 const db = drizzle(client);
 

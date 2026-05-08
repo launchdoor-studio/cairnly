@@ -10,7 +10,9 @@ export type ReportExportResult =
   | { ok: true; csv: string; filename: string; jobId: string }
   | { ok: false; message: string };
 
-export async function runReportExportAction(reportId: ReportId): Promise<ReportExportResult> {
+export async function runReportExportAction(
+  reportId: ReportId,
+): Promise<ReportExportResult> {
   if (!hasDatabaseUrl()) {
     return { ok: false, message: "DATABASE_URL is not configured." };
   }

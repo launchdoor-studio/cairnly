@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build circular (alpha-masked) favicons from repo assets/logo.png."""
+"""Build circular (alpha-masked) favicons and legacy favicon.ico from repo assets/logo.png."""
 
 from __future__ import annotations
 
@@ -44,6 +44,20 @@ def resize_save(im: Image.Image, size: int, path: Path) -> None:
     scaled.save(path, format="PNG", optimize=True)
 
 
+def save_favicon_ico(im: Image.Image, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sizes_px = (16, 32, 48)
+    layers = [
+        im.resize((s, s), Image.Resampling.LANCZOS).convert("RGBA") for s in sizes_px
+    ]
+    layers[0].save(
+        path,
+        format="ICO",
+        sizes=[(layer.width, layer.height) for layer in layers],
+        append_images=list(layers[1:]),
+    )
+
+
 def main() -> None:
     src = Image.open(LOGO)
     w, h = src.size
@@ -56,6 +70,7 @@ def main() -> None:
     resize_save(base, 16, PUB / "favicon-16x16.png")
     resize_save(base, 192, PUB / "android-chrome-192x192.png")
     resize_save(base, 512, PUB / "android-chrome-512x512.png")
+    save_favicon_ico(base, PUB / "favicon.ico")
 
 
 if __name__ == "__main__":

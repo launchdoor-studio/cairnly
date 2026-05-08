@@ -17,7 +17,10 @@ export async function parseContactImportCsvAction(content: unknown) {
 
   const parsed = contactImportParseInputSchema.safeParse({ content });
   if (!parsed.success) {
-    return { ok: false as const, message: "CSV exceeds the upload limit or input is invalid." };
+    return {
+      ok: false as const,
+      message: "CSV exceeds the upload limit or input is invalid.",
+    };
   }
 
   try {

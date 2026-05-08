@@ -6,15 +6,19 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "check": "turbo check",
+    "check": "turbo check && vitest run",
+    "crm": "node --import tsx ./apps/cli/src/cli.ts",
     "db:generate": "pnpm --filter @cairnly/db db:generate",
     "db:migrate": "pnpm --filter @cairnly/db db:migrate",
     "db:seed": "pnpm --filter @cairnly/db db:seed",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
+    "tsx": "^4.21.0",
     "turbo": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vitest": "^3.2.4"
   }
 }

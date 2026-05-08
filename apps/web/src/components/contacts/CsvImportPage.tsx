@@ -11,8 +11,8 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   GitCompareArrows,
-  type LucideIcon,
   Loader2,
+  type LucideIcon,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -20,11 +20,11 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type ChangeEvent,
   startTransition,
   useCallback,
   useMemo,
   useState,
-  type ChangeEvent,
 } from "react";
 import {
   commitContactImportAction,
@@ -72,19 +72,16 @@ export function CsvImportPage() {
   const router = useRouter();
   const [fileName, setFileName] = useState<string | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
-  const [parseResult, setParseResult] = useState<
-    | {
-        headers: string[];
-        previewRows: string[][];
-        totalDataRows: number;
-        cappedRows: number;
-        truncatedBySize: boolean;
-      }
-    | null
-  >(null);
+  const [parseResult, setParseResult] = useState<{
+    headers: string[];
+    previewRows: string[][];
+    totalDataRows: number;
+    cappedRows: number;
+    truncatedBySize: boolean;
+  } | null>(null);
   const [mapping, setMapping] = useState<ContactImportMapping | null>(null);
   const [preview, setPreview] = useState<
-    Awaited<ReturnType<typeof previewContactImportAction>> & { ok: true } | null
+    (Awaited<ReturnType<typeof previewContactImportAction>> & { ok: true }) | null
   >(null);
   const [allowDupRowIndices, setAllowDupRowIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -178,19 +175,24 @@ export function CsvImportPage() {
 
   const toggleAllowDup = useCallback((rowIndex: number) => {
     setAllowDupRowIndices((prev) =>
-      prev.includes(rowIndex) ? prev.filter((r) => r !== rowIndex) : [...prev, rowIndex],
+      prev.includes(rowIndex)
+        ? prev.filter((r) => r !== rowIndex)
+        : [...prev, rowIndex],
     );
   }, []);
 
-  const updateMapping = useCallback((header: string, target: ContactImportFieldTarget) => {
-    setMapping((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      return { ...prev, [header]: target };
-    });
-    setPreview(null);
-  }, []);
+  const updateMapping = useCallback(
+    (header: string, target: ContactImportFieldTarget) => {
+      setMapping((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return { ...prev, [header]: target };
+      });
+      setPreview(null);
+    },
+    [],
+  );
 
   return (
     <main className="min-h-screen bg-bg text-text">
@@ -205,7 +207,9 @@ export function CsvImportPage() {
           </Link>
 
           <div className="mt-10">
-            <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">CSV import</p>
+            <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">
+              CSV import
+            </p>
             <h1 className="mt-2 text-4xl font-semibold tracking-[-0.06em] text-text">
               Import contacts (CSV)
             </h1>
@@ -255,7 +259,9 @@ export function CsvImportPage() {
             <article className="rounded-modal border border-border bg-surface p-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">Import preview</p>
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">
+                    Import preview
+                  </p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-text">
                     {fileName ?? "Choose a CSV file"}
                   </h2>
@@ -263,13 +269,21 @@ export function CsvImportPage() {
                     {parseResult ? (
                       <>
                         {parseResult.totalDataRows} rows detected,&nbsp;
-                        <span className="font-medium text-text">{mappedFieldCount}</span> mapped
-                        fields (showing first {Math.min(CONTACT_IMPORT_PREVIEW_ROW_CAP, parseResult.previewRows.length)}{" "}
-                        rows below). Imports process at most {parseResult.cappedRows} rows per run.
+                        <span className="font-medium text-text">
+                          {mappedFieldCount}
+                        </span>{" "}
+                        mapped fields (showing first{" "}
+                        {Math.min(
+                          CONTACT_IMPORT_PREVIEW_ROW_CAP,
+                          parseResult.previewRows.length,
+                        )}{" "}
+                        rows below). Imports process at most {parseResult.cappedRows}{" "}
+                        rows per run.
                       </>
                     ) : (
                       <>
-                        Parsing runs on the server with row limits before any write occurs.
+                        Parsing runs on the server with row limits before any write
+                        occurs.
                       </>
                     )}
                   </p>
@@ -325,15 +339,17 @@ export function CsvImportPage() {
                   <div className="border-b border-border p-5">
                     <h3 className="font-semibold text-text">Column mapping</h3>
                     <p className="mt-1 text-[13px] text-muted">
-                      Map each CSV header to a Cairnly field. Rows without a usable name cannot be
-                      created.
+                      Map each CSV header to a Cairnly field. Rows without a usable name
+                      cannot be created.
                     </p>
                   </div>
                   {parseResult && mapping ? (
                     <div className="divide-y divide-border">
                       {parseResult.headers.map((header) => {
                         const sample =
-                          parseResult.previewRows[0]?.[parseResult.headers.indexOf(header)] ?? "";
+                          parseResult.previewRows[0]?.[
+                            parseResult.headers.indexOf(header)
+                          ] ?? "";
                         const target = mapping[header] ?? "ignore";
 
                         return (
@@ -343,10 +359,15 @@ export function CsvImportPage() {
                           >
                             <div>
                               <p className="text-[12px] text-muted">CSV column</p>
-                              <p className="mt-1 text-[13px] font-medium text-text">{header}</p>
+                              <p className="mt-1 text-[13px] font-medium text-text">
+                                {header}
+                              </p>
                             </div>
                             <div>
-                              <label className="text-[12px] text-muted" htmlFor={`map-${header}`}>
+                              <label
+                                className="text-[12px] text-muted"
+                                htmlFor={`map-${header}`}
+                              >
                                 Cairnly field
                               </label>
                               <select
@@ -379,7 +400,9 @@ export function CsvImportPage() {
                       })}
                     </div>
                   ) : (
-                    <p className="p-5 text-[13px] text-muted">Upload a CSV to begin mapping.</p>
+                    <p className="p-5 text-[13px] text-muted">
+                      Upload a CSV to begin mapping.
+                    </p>
                   )}
                 </article>
 
@@ -387,8 +410,8 @@ export function CsvImportPage() {
                   <div className="border-b border-border p-5">
                     <h3 className="font-semibold text-text">Dedupe preview</h3>
                     <p className="mt-1 text-[13px] text-muted">
-                      High-confidence matches reuse an existing email.&nbsp; Medium matches reuse a
-                      normalized name.
+                      High-confidence matches reuse an existing email.&nbsp; Medium
+                      matches reuse a normalized name.
                     </p>
                   </div>
                   {!preview ? (
@@ -397,7 +420,8 @@ export function CsvImportPage() {
                     </p>
                   ) : preview.duplicates.length === 0 ? (
                     <p className="p-5 text-[13px] text-text">
-                      No likely duplicates surfaced for capped rows.&nbsp; You can still import.
+                      No likely duplicates surfaced for capped rows.&nbsp; You can still
+                      import.
                     </p>
                   ) : (
                     <div className="divide-y divide-border">
@@ -414,7 +438,9 @@ export function CsvImportPage() {
                             className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
                           >
                             <div>
-                              <p className="text-[13px] font-medium text-text">{d.csvName}</p>
+                              <p className="text-[13px] font-medium text-text">
+                                {d.csvName}
+                              </p>
                               <p className="mt-1 text-[12px] text-muted">
                                 {d.csvEmail ?? "no email"}
                               </p>
@@ -444,7 +470,7 @@ export function CsvImportPage() {
                   )}
                 </article>
 
-                {preview && preview.sampleMappedRows.length ? (
+                {preview?.sampleMappedRows.length ? (
                   <article className="rounded-modal border border-border bg-surface">
                     <div className="border-b border-border p-5">
                       <h3 className="font-semibold text-text">Mapped sample</h3>
@@ -473,7 +499,8 @@ export function CsvImportPage() {
                   <ShieldCheck className="h-5 w-5 text-success" aria-hidden />
                   <h3 className="mt-4 font-semibold text-text">Import behavior</h3>
                   <p className="mt-2 text-[13px] text-muted">
-                    Imports use the same safeguards as manual contact creation—including timeline events once committed.
+                    Imports use the same safeguards as manual contact creation—including
+                    timeline events once committed.
                   </p>
                 </article>
 
@@ -488,7 +515,10 @@ export function CsvImportPage() {
                       label="Import cap"
                       value={parseResult ? String(parseResult.cappedRows) : "—"}
                     />
-                    <SummaryRow label="Mapped fields" value={String(mappedFieldCount)} />
+                    <SummaryRow
+                      label="Mapped fields"
+                      value={String(mappedFieldCount)}
+                    />
                     <SummaryRow
                       label="Duplicate candidates"
                       value={preview ? String(preview.duplicates.length) : "—"}

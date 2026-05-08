@@ -9,4 +9,6 @@ export type SessionUser = {
 export type ApiContext = {
   db: Db;
   user: SessionUser | null;
+  /** For IP scoping on public mutations (lead form, booking). */
+  requestHeaders: { get(name: string): string | null };
 };

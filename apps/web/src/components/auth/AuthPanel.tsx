@@ -28,8 +28,7 @@ function formatAuthError(error: unknown, fallback: string): string {
     if (typeof msg === "string" && msg.trim().length > 0) {
       return msg;
     }
-    const status =
-      typeof record.status === "number" ? record.status : undefined;
+    const status = typeof record.status === "number" ? record.status : undefined;
     const statusText =
       typeof record.statusText === "string" ? record.statusText : undefined;
     if (status != null || (statusText && statusText.length > 0)) {
@@ -37,16 +36,17 @@ function formatAuthError(error: unknown, fallback: string): string {
       return `Request failed (${detail}).${devHintForAuthFailure(status)}`;
     }
   }
-  if (
-    fallback === "Authentication failed." &&
-    process.env.NODE_ENV !== "production"
-  ) {
+  if (fallback === "Authentication failed." && process.env.NODE_ENV !== "production") {
     return `${fallback} Check DATABASE_URL/Postgres credentials and Better Auth URL settings.`;
   }
   return fallback;
 }
 
-export function AuthPanel({ redirectAfterLogin = "/" }: { redirectAfterLogin?: string }) {
+export function AuthPanel({
+  redirectAfterLogin = "/",
+}: {
+  redirectAfterLogin?: string;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [message, setMessage] = useState<string | undefined>();
@@ -120,9 +120,7 @@ export function AuthPanel({ redirectAfterLogin = "/" }: { redirectAfterLogin?: s
       });
 
       if (result?.error) {
-        setMessage(
-          formatAuthError(result.error, "Passkey sign-in failed."),
-        );
+        setMessage(formatAuthError(result.error, "Passkey sign-in failed."));
       }
     });
   }
@@ -140,8 +138,8 @@ export function AuthPanel({ redirectAfterLogin = "/" }: { redirectAfterLogin?: s
               Sign in to Cairnly
             </h1>
             <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted">
-              Email and password, magic link, or passkey. Manage passkeys and
-              sessions under Settings → Security.
+              Email and password, magic link, or passkey. Manage passkeys and sessions
+              under Settings → Security.
             </p>
           </div>
         </div>

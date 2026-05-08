@@ -10,8 +10,8 @@ import { TRPCError } from "@trpc/server";
 
 import { createContactRepository } from "../repositories/contact-repository";
 import { createContactService } from "../services/contact-service";
-import { contactImportRouter } from "./contact-import-router";
 import { protectedProcedure, router } from "../trpc";
+import { contactImportRouter } from "./contact-import-router";
 
 export const contactRouter = router({
   list: protectedProcedure

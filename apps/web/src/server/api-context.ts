@@ -13,6 +13,7 @@ export async function createApiContext(requestHeaders?: Headers): Promise<ApiCon
   return {
     db: getDb(),
     user: session?.user ? toSessionUser(session.user) : null,
+    requestHeaders: headerList,
   };
 }
 

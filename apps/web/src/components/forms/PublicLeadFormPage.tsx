@@ -5,8 +5,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileText,
-  type LucideIcon,
   Loader2,
+  type LucideIcon,
   Mail,
   ShieldCheck,
   Sparkles,
@@ -25,9 +25,7 @@ export function PublicLeadFormPage({
   submitLeadFormAction,
 }: {
   slug: string;
-  submitLeadFormAction: (
-    input: LeadFormSubmitInput,
-  ) => Promise<MutationResult>;
+  submitLeadFormAction: (input: LeadFormSubmitInput) => Promise<MutationResult>;
 }) {
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
@@ -100,7 +98,8 @@ export function PublicLeadFormPage({
               Tell us how we can help
             </h1>
             <p className="mt-4 max-w-sm text-[14px] text-muted">
-              We&apos;ll reply by email—your submission is saved to our workspace timeline.
+              We&apos;ll reply by email—your submission is saved to our workspace
+              timeline.
             </p>
           </div>
 
@@ -177,7 +176,11 @@ export function PublicLeadFormPage({
                           required
                         />
                       </div>
-                      <TextField name="company" label="Company" placeholder="Brightline Co." />
+                      <TextField
+                        name="company"
+                        label="Company"
+                        placeholder="Brightline Co."
+                      />
                       <label className="block">
                         <span className="text-[12px] font-medium text-muted">
                           What should we know?
@@ -209,8 +212,8 @@ export function PublicLeadFormPage({
                     <article className="rounded-modal border border-border bg-surface p-5">
                       <h3 className="font-semibold text-text">What happens next</h3>
                       <p className="mt-2 text-[13px] text-muted">
-                        Someone from the team reviews your note and replies by email typically within two
-                        business days.
+                        Someone from the team reviews your note and replies by email
+                        typically within two business days.
                       </p>
                     </article>
                   </aside>
@@ -277,7 +280,9 @@ function ConfirmationCard({ onReset }: { onReset: () => void }) {
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-card bg-surface-hover text-success">
         <CheckCircle2 className="h-6 w-6" aria-hidden />
       </div>
-      <h2 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-text">Thanks — sent</h2>
+      <h2 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-text">
+        Thanks — sent
+      </h2>
       <p className="mx-auto mt-2 max-w-md text-[14px] text-muted">
         Your answers are recorded and you should hear back at the email you provided.
       </p>

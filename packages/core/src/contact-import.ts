@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { MAX_CONTACT_IMPORT_CSV_CHARS, MAX_CONTACT_IMPORT_DATA_ROWS } from "./constants";
+import {
+  MAX_CONTACT_IMPORT_CSV_CHARS,
+  MAX_CONTACT_IMPORT_DATA_ROWS,
+} from "./constants";
 
 export const CONTACT_IMPORT_FIELD_TARGETS = [
   "ignore",
@@ -100,7 +103,7 @@ export function truncateImportRowCount(total: number): {
 
 export function normalizeDedupeEmail(value: string | undefined): string | null {
   const v = value?.trim().toLowerCase();
-  if (!v || !v.includes("@")) {
+  if (!v?.includes("@")) {
     return null;
   }
   return v;

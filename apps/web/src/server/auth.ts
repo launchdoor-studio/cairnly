@@ -24,17 +24,12 @@ function parseCommaSeparatedOrigins(raw: string | undefined): string[] {
 
 /** Extra origins for CSRF/origin checks (e.g. `next dev -p 3002` while BETTER_AUTH_URL stays on :3000). */
 function extraTrustedOrigins(): string[] {
-  const fromEnv = parseCommaSeparatedOrigins(
-    process.env.BETTER_AUTH_TRUSTED_ORIGINS,
-  );
+  const fromEnv = parseCommaSeparatedOrigins(process.env.BETTER_AUTH_TRUSTED_ORIGINS);
   const fromPort =
     process.env.NODE_ENV !== "production" &&
     typeof process.env.PORT === "string" &&
     /^[0-9]+$/.test(process.env.PORT)
-      ? [
-          `http://localhost:${process.env.PORT}`,
-          `http://127.0.0.1:${process.env.PORT}`,
-        ]
+      ? [`http://localhost:${process.env.PORT}`, `http://127.0.0.1:${process.env.PORT}`]
       : [];
 
   const merged = [...fromEnv];

@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app/AppShell";
-import { buildDashboardSummary } from "@/lib/dashboard-summary";
 import type { DashboardSummary } from "@/lib/dashboard-summary";
+import { buildDashboardSummary } from "@/lib/dashboard-summary";
 import { getApiCaller } from "@/server/api";
 import { hasDatabaseUrl } from "@/server/db";
 

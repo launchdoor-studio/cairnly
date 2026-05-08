@@ -1,4 +1,4 @@
-import { exportJobs, type Db } from "@cairnly/db";
+import { type Db, exportJobs } from "@cairnly/db";
 import { and, desc, eq } from "drizzle-orm";
 
 export type ExportJobRow = typeof exportJobs.$inferSelect;
@@ -10,20 +10,13 @@ export type ExportJobRepository = {
     reportId: string;
     actorId?: string | null;
   }): Promise<void>;
-  complete(input: {
-    id: string;
-    rowCount: number;
-    resultCsv: string;
-  }): Promise<void>;
+  complete(input: { id: string; rowCount: number; resultCsv: string }): Promise<void>;
   fail(input: { id: string; message: string }): Promise<void>;
   findById(input: {
     id: string;
     workspaceId: string;
   }): Promise<ExportJobRow | undefined>;
-  listRecent(input: {
-    workspaceId: string;
-    limit: number;
-  }): Promise<ExportJobRow[]>;
+  listRecent(input: { workspaceId: string; limit: number }): Promise<ExportJobRow[]>;
 };
 
 export function createExportJobRepository(db: Db): ExportJobRepository {
@@ -65,7 +58,12 @@ export function createExportJobRepository(db: Db): ExportJobRepository {
       const [job] = await db
         .select()
         .from(exportJobs)
-        .where(and(eq(exportJobs.id, input.id), eq(exportJobs.workspaceId, input.workspaceId)))
+        .where(
+          and(
+            eq(exportJobs.id, input.id),
+            eq(exportJobs.workspaceId, input.workspaceId),
+          ),
+        )
         .limit(1);
 
       return job;

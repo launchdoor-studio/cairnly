@@ -60,7 +60,11 @@ export const reportListJobsOutputSchema = z.object({
   jobs: z.array(reportExportJobDtoSchema),
 });
 
-export const REPORT_DEFINITIONS: { id: ReportId; title: string; description: string }[] = [
+export const REPORT_DEFINITIONS: {
+  id: ReportId;
+  title: string;
+  description: string;
+}[] = [
   {
     id: "pipeline_by_stage",
     title: "Pipeline by stage",
@@ -70,17 +74,20 @@ export const REPORT_DEFINITIONS: { id: ReportId; title: string; description: str
   {
     id: "conversion_funnel",
     title: "Conversion funnel",
-    description: "Open deal distribution by pipeline stage (funnel snapshot for export).",
+    description:
+      "Open deal distribution by pipeline stage (funnel snapshot for export).",
   },
   {
     id: "win_loss_by_reason",
     title: "Win/loss by reason",
-    description: "Closed won and lost deals including lost reason captured on the deal.",
+    description:
+      "Closed won and lost deals including lost reason captured on the deal.",
   },
   {
     id: "revenue_by_month",
     title: "Revenue by month",
-    description: "Won deal revenue grouped by calendar month (deal updated time as close proxy).",
+    description:
+      "Won deal revenue grouped by calendar month (deal updated time as close proxy).",
   },
   {
     id: "contacts_by_source",

@@ -1,11 +1,11 @@
-import { formSubmissions, forms, type Db } from "@cairnly/db";
+import { type Db, formSubmissions, forms } from "@cairnly/db";
 import { and, eq } from "drizzle-orm";
 
 export type FormRepository = {
   findBySlug(input: {
     workspaceId: string;
     slug: string;
-  }): Promise<(typeof forms.$inferSelect) | undefined>;
+  }): Promise<typeof forms.$inferSelect | undefined>;
   insertSubmission(input: typeof formSubmissions.$inferInsert): Promise<void>;
 };
 

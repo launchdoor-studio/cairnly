@@ -1,36 +1,37 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-import { sanitizeInternalNextPath } from "@/lib/safe-next";
+import { classifyProtectedRouteMiddleware } from "@/lib/protected-route-middleware-logic";
+import { CAIRNLY_INTENDED_NEXT_HEADER } from "@/lib/safe-next";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const classified = classifyProtectedRouteMiddleware({
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+    hasAuthCookie: hasBetterAuthCookie(request),
+  });
 
-  if (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/sign-in" ||
-    pathname.startsWith("/f/") ||
-    pathname.startsWith("/m/") ||
-    pathname === "/healthz"
-  ) {
+  if (classified.kind === "public") {
     return NextResponse.next();
   }
 
-  if (!hasBetterAuthCookie(request)) {
+  if (classified.kind === "sign-in") {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.search = "";
-    const fullPath = `${pathname}${request.nextUrl.search}`;
-    const safe = sanitizeInternalNextPath(fullPath);
-    if (safe) {
-      url.searchParams.set("next", safe);
+    const nextSafe = classified.nextSafe;
+    if (nextSafe) {
+      url.searchParams.set("next", nextSafe);
     }
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  const headerValue = classified.intendedNextSafe;
+  if (headerValue) {
+    requestHeaders.set(CAIRNLY_INTENDED_NEXT_HEADER, headerValue);
+  }
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 function hasBetterAuthCookie(request: NextRequest) {

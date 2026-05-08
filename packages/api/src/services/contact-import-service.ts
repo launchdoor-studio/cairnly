@@ -1,13 +1,13 @@
 import {
   CONTACT_IMPORT_PREVIEW_ROW_CAP,
+  type ContactImportMapping,
   contactCreateInputSchema,
   normalizeDedupeEmail,
   normalizeDedupeName,
   truncateImportRowCount,
-  type ContactImportMapping,
 } from "@cairnly/core";
-import { parse } from "csv-parse/sync";
 import { createId } from "@paralleldrive/cuid2";
+import { parse } from "csv-parse/sync";
 import { z } from "zod";
 
 import type { SessionUser } from "../context";
@@ -56,10 +56,7 @@ export type ContactImportCommitOutput = {
 
 type DedupeIndexes = {
   byEmail: Map<string, { id: string; name: string; primaryEmail: string | null }>;
-  nameCluster: Map<
-    string,
-    { id: string; name: string; primaryEmail: string | null }[]
-  >;
+  nameCluster: Map<string, { id: string; name: string; primaryEmail: string | null }[]>;
 };
 
 function dedupeHeaderLabels(raw: string[]): string[] {
@@ -73,7 +70,10 @@ function dedupeHeaderLabels(raw: string[]): string[] {
   });
 }
 
-function parseContactImportSheet(content: string): { headers: string[]; rows: string[][] } {
+function parseContactImportSheet(content: string): {
+  headers: string[];
+  rows: string[][];
+} {
   let records: string[][];
   try {
     records = parse(content, {
@@ -120,7 +120,7 @@ function pickCell(row: string[], index: number): string {
 function splitNamePhoneEmailHeuristic(
   raw: string,
   mapping: ContactImportMapping,
-  headers: string[],
+  _headers: string[],
 ): { fillName?: string; fillEmail?: string; fillPhone?: string } {
   /** If user mapped a single "combined" column into name, attempt to pull email/phone when unmapped. */
   const hasDedicated =
@@ -143,9 +143,7 @@ function splitNamePhoneEmailHeuristic(
   const digits = rest.replace(/\D/g, "");
   const phone =
     digits.length >= 10
-      ? rest
-          .split(/\s+/)
-          .find((p) => p.replace(/\D/g, "").length >= 10)
+      ? rest.split(/\s+/).find((p) => p.replace(/\D/g, "").length >= 10)
       : undefined;
 
   if (phone) {
@@ -203,7 +201,10 @@ function parseTypeField(raw: string): "person" | "company" {
 function buildDedupeIndexes(
   rows: { id: string; name: string; primaryEmail: string | null }[],
 ): DedupeIndexes {
-  const byEmail = new Map<string, { id: string; name: string; primaryEmail: string | null }>();
+  const byEmail = new Map<
+    string,
+    { id: string; name: string; primaryEmail: string | null }
+  >();
   const nameCluster = new Map<
     string,
     { id: string; name: string; primaryEmail: string | null }[]
@@ -233,7 +234,10 @@ function matchDuplicate(
   csvName: string,
   csvEmailNorm: string | null,
 ):
-  | { confidence: "high" | "medium"; matched: { id: string; name: string; primaryEmail: string | null } }
+  | {
+      confidence: "high" | "medium";
+      matched: { id: string; name: string; primaryEmail: string | null };
+    }
   | undefined {
   if (csvEmailNorm) {
     const hi = dedupe.byEmail.get(csvEmailNorm);
@@ -340,9 +344,9 @@ export function parseContactImportContent(content: string): ContactImportParseOu
   const { headers, rows } = parseContactImportSheet(content);
   const { capped } = truncateImportRowCount(rows.length);
 
-  const previewRows = rows.slice(0, CONTACT_IMPORT_PREVIEW_ROW_CAP).map((r) =>
-    headers.map((_h, i) => pickCell(r, i)),
-  );
+  const previewRows = rows
+    .slice(0, CONTACT_IMPORT_PREVIEW_ROW_CAP)
+    .map((r) => headers.map((_h, i) => pickCell(r, i)));
 
   return {
     headers,
@@ -507,7 +511,12 @@ export function createContactImportService(deps: {
         }
       }
 
-      if (created > 0 || skippedDuplicates > 0 || skippedMissingName > 0 || overCap > 0) {
+      if (
+        created > 0 ||
+        skippedDuplicates > 0 ||
+        skippedMissingName > 0 ||
+        overCap > 0
+      ) {
         await deps.repository.recordEvent({
           id: createId(),
           workspaceId: user.workspaceId,

@@ -1,14 +1,13 @@
-import {
-  type ReportExportJobDto,
-  type ReportId,
-  reportIdSchema,
-} from "@cairnly/core";
-import { contacts, deals, events, pipelines, stages, users } from "@cairnly/db";
+import { type ReportExportJobDto, type ReportId, reportIdSchema } from "@cairnly/core";
 import type { Db } from "@cairnly/db";
-import { and, count, eq, inArray, isNull, sql, sum } from "drizzle-orm";
+import { contacts, deals, events, pipelines, stages, users } from "@cairnly/db";
 import { createId } from "@paralleldrive/cuid2";
+import { and, count, eq, inArray, isNull, sql, sum } from "drizzle-orm";
 
-import type { ExportJobRepository, ExportJobRow } from "../repositories/export-job-repository";
+import type {
+  ExportJobRepository,
+  ExportJobRow,
+} from "../repositories/export-job-repository";
 
 function csvEscape(text: string): string {
   if (/[\r\n",]/.test(text)) {
@@ -22,7 +21,9 @@ function encodeCsv(
   data: (string | number | bigint | null | undefined)[][],
 ): { csv: string; rowCount: number } {
   const head = headers.map(csvEscape).join(",");
-  const body = data.map((row) => row.map((c) => csvEscape(String(c ?? ""))).join(",")).join("\n");
+  const body = data
+    .map((row) => row.map((c) => csvEscape(String(c ?? ""))).join(","))
+    .join("\n");
   return {
     csv: body.length ? `${head}\n${body}` : head,
     rowCount: data.length,
@@ -215,7 +216,9 @@ async function contactsBySourceReport(db: Db, workspaceId: string) {
     .where(and(eq(contacts.workspaceId, workspaceId), isNull(contacts.deletedAt)))
     .groupBy(sql`coalesce(${contacts.customFields}->>'source', 'unknown')`);
 
-  const mapped = [...rows].sort((a, b) => Number(b.contactCount) - Number(a.contactCount));
+  const mapped = [...rows].sort(
+    (a, b) => Number(b.contactCount) - Number(a.contactCount),
+  );
 
   const headers = ["source", "contact_count"];
   const data = mapped.map((r) => [r.source, Number(r.contactCount)]);
@@ -238,15 +241,19 @@ async function activityByUserReport(db: Db, workspaceId: string) {
   rows.sort((a, b) => Number(b.eventCount) - Number(a.eventCount));
 
   const headers = ["user_id", "email", "name", "event_count"];
-  const data = rows.map((r) => [r.userId, r.email, r.displayName, Number(r.eventCount)]);
+  const data = rows.map((r) => [
+    r.userId,
+    r.email,
+    r.displayName,
+    Number(r.eventCount),
+  ]);
   return encodeCsv(headers, data);
 }
 
 async function averageDealCycleReport(db: Db, workspaceId: string) {
   const [aggregate] = await db
     .select({
-      avgCycleDays:
-        sql<string>`coalesce(avg(extract(epoch from (${deals.updatedAt} - ${deals.createdAt})) / 86400.0), 0)::text`,
+      avgCycleDays: sql<string>`coalesce(avg(extract(epoch from (${deals.updatedAt} - ${deals.createdAt})) / 86400.0), 0)::text`,
       wonDealCount: count(deals.id),
     })
     .from(deals)
@@ -354,6 +361,9 @@ export type ReportExportService = {
     reportId: ReportId;
   }): Promise<{ job: ReportExportJobDto; csv: string }>;
 
+  /** Finishes a row already in `pending` (used by pg-boss workers and inline `runExport`). */
+  executePendingExport(input: { id: string; workspaceId: string }): Promise<void>;
+
   mapJobRow(row: ExportJobRow): ReportExportJobDto;
 };
 
@@ -364,6 +374,39 @@ export function createReportExportService(deps: {
   return {
     mapJobRow: toReportExportJobDto,
 
+    async executePendingExport(input) {
+      const row = await deps.jobsRepo.findById({
+        id: input.id,
+        workspaceId: input.workspaceId,
+      });
+
+      if (!row || row.status !== "pending") {
+        return;
+      }
+
+      const reportId = reportIdSchema.parse(row.reportId);
+
+      try {
+        const { csv, rowCount } = await buildReportCsv(
+          deps.db,
+          input.workspaceId,
+          reportId,
+        );
+        await deps.jobsRepo.complete({
+          id: input.id,
+          rowCount,
+          resultCsv: csv,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message.slice(0, 2000)
+            : "report_export_failed";
+        await deps.jobsRepo.fail({ id: input.id, message });
+        throw error;
+      }
+    },
+
     async runExport(input) {
       const id = createId();
       await deps.jobsRepo.createPending({
@@ -373,29 +416,22 @@ export function createReportExportService(deps: {
         actorId: input.actorId,
       });
 
-      try {
-        const { csv, rowCount } = await buildReportCsv(
-          deps.db,
-          input.workspaceId,
-          input.reportId,
-        );
-        await deps.jobsRepo.complete({ id, rowCount, resultCsv: csv });
-        const row = await deps.jobsRepo.findById({
-          id,
-          workspaceId: input.workspaceId,
-        });
+      await this.executePendingExport({ id, workspaceId: input.workspaceId });
 
-        if (!row) {
-          throw new Error("export_job_missing");
-        }
+      const row = await deps.jobsRepo.findById({
+        id,
+        workspaceId: input.workspaceId,
+      });
 
-        return { job: toReportExportJobDto(row), csv };
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message.slice(0, 2000) : "report_export_failed";
-        await deps.jobsRepo.fail({ id, message });
-        throw error;
+      if (!row) {
+        throw new Error("export_job_missing");
       }
+
+      if (row.status !== "completed" || row.resultCsv == null) {
+        throw new Error("report_export_failed");
+      }
+
+      return { job: toReportExportJobDto(row), csv: row.resultCsv };
     },
   };
 }

@@ -6,6 +6,7 @@ import {
 } from "@cairnly/core";
 import { TRPCError } from "@trpc/server";
 
+import { checkPublicSubmissionRate } from "../public-submission-rate-limit";
 import { createSchedulingRepository } from "../repositories/scheduling-repository";
 import { createSchedulingService } from "../services/scheduling-service";
 import { publicProcedure, router } from "../trpc";
@@ -28,6 +29,11 @@ export const schedulingRouter = router({
     .input(bookingCreateInputSchema)
     .output(bookingOutputSchema)
     .mutation(async ({ ctx, input }) => {
+      const rate = checkPublicSubmissionRate(ctx.requestHeaders, "booking");
+      if (!rate.ok) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: rate.message });
+      }
+
       const service = createSchedulingService(createSchedulingRepository(ctx.db));
       const result = await service.createBooking(input);
       if (!result.ok) {

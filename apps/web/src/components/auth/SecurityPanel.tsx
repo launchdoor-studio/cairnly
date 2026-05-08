@@ -151,7 +151,8 @@ export function SecurityPanel() {
               <div>
                 <h2 className="font-semibold text-text">Passkeys</h2>
                 <p className="mt-1 text-[13px] text-muted">
-                  Device passkeys use WebAuthn; add one per trusted device if you enable them.
+                  Device passkeys use WebAuthn; add one per trusted device if you enable
+                  them.
                 </p>
               </div>
               <button

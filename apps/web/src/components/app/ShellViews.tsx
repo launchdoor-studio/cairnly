@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  REPORT_DEFINITIONS,
   type ContactDto,
   type DealDto,
   type DealUpdateInput,
   type EventDto,
   type NoteDto,
+  REPORT_DEFINITIONS,
   type ReportExportJobDto,
   type ReportId,
   type StageDto,
@@ -278,7 +278,8 @@ const setupSections = [
   },
   {
     title: "AI privacy mode",
-    description: "Stays off until you choose local inference, external API keys, or off.",
+    description:
+      "Stays off until you choose local inference, external API keys, or off.",
     status: "Off",
     icon: Bot,
   },
@@ -436,14 +437,14 @@ export function ListPane({
     activeView === "home"
       ? (dashboard?.homeListPreview ?? viewListItems.home)
       : activeView === "contacts" && data?.contacts?.length
-      ? data.contacts.map(contactToListItem)
-      : activeView === "deals" && appData?.deals?.length
-        ? appData.deals.map(dealToListItem)
-        : activeView === "tasks" && appData?.tasks?.length
-          ? appData.tasks.map(taskToListItem)
-          : activeView === "inbox" && appData?.events?.length
-            ? appData.events.map(eventToListItem)
-            : viewListItems[activeView];
+        ? data.contacts.map(contactToListItem)
+        : activeView === "deals" && appData?.deals?.length
+          ? appData.deals.map(dealToListItem)
+          : activeView === "tasks" && appData?.tasks?.length
+            ? appData.tasks.map(taskToListItem)
+            : activeView === "inbox" && appData?.events?.length
+              ? appData.events.map(eventToListItem)
+              : viewListItems[activeView];
 
   return (
     <section className="border-b border-border bg-surface/70 p-4 md:p-6 xl:border-b-0 xl:border-r">
@@ -565,9 +566,7 @@ export function DetailPane({
           <CalendarView slots={appData?.scheduling?.slots} />
         ) : null}
         {activeView === "automations" ? <AutomationsView /> : null}
-        {activeView === "reports" ? (
-          <ReportsView reportExport={reportExport} />
-        ) : null}
+        {activeView === "reports" ? <ReportsView reportExport={reportExport} /> : null}
         {activeView === "inbox" ? (
           <TimelineView
             actions={actions}
@@ -609,23 +608,21 @@ function DashboardView({
   activeItem: NavItem;
   dashboard?: DashboardSummary;
 }) {
-  const metrics =
-    dashboard?.metrics ?? [
-      { label: "Weighted pipeline", value: "—", detail: "Needs database" },
-      { label: "New contacts", value: "—", detail: "This week" },
-      { label: "Due today", value: "—", detail: "Open tasks" },
-      { label: "Open deals", value: "—", detail: "Active pipeline" },
-    ];
+  const metrics = dashboard?.metrics ?? [
+    { label: "Weighted pipeline", value: "—", detail: "Needs database" },
+    { label: "New contacts", value: "—", detail: "This week" },
+    { label: "Due today", value: "—", detail: "Open tasks" },
+    { label: "Open deals", value: "—", detail: "Active pipeline" },
+  ];
 
   const pipelinePreview = dashboard?.pipelineStages ?? [];
 
-  const activityCards =
-    dashboard?.activityCards ?? [
-      {
-        label: "Activity",
-        detail: "Emails, deals, notes, and form submissions aggregate on the timeline.",
-      },
-    ];
+  const activityCards = dashboard?.activityCards ?? [
+    {
+      label: "Activity",
+      detail: "Emails, deals, notes, and form submissions aggregate on the timeline.",
+    },
+  ];
 
   return (
     <>
@@ -743,7 +740,9 @@ function ContactView({
             <div>
               <h3 className="font-semibold text-text">Fields</h3>
               <p className="mt-1 text-[12px] text-muted">
-                {contact ? "Changes save to your workspace." : "Sample layout when no contact is loaded."}
+                {contact
+                  ? "Changes save to your workspace."
+                  : "Sample layout when no contact is loaded."}
               </p>
             </div>
             {contact ? (
@@ -810,8 +809,7 @@ function ContactView({
             <h3 className="font-semibold text-text">Email drafts</h3>
           </div>
           <p className="mt-3 text-[13px] text-muted">
-            AI-assisted compose stays off unless you enable it in workspace AI
-            settings.
+            AI-assisted compose stays off unless you enable it in workspace AI settings.
           </p>
         </article>
         <article className="rounded-modal border border-border bg-surface p-5">
@@ -833,7 +831,8 @@ function ContactView({
         <article className="rounded-modal border border-border bg-surface p-5">
           <h3 className="font-semibold text-text">Public form</h3>
           <p className="mt-2 text-[13px] text-muted">
-            Share /f/[slug] with leads; submissions create contacts and appear on the timeline.
+            Share /f/[slug] with leads; submissions create contacts and appear on the
+            timeline.
           </p>
           <Link
             href="/f/intake"
@@ -929,13 +928,7 @@ function DealsView({
   );
 }
 
-function DealsSummaryBar({
-  deals,
-  stages,
-}: {
-  deals: DealDto[];
-  stages: StageDto[];
-}) {
+function DealsSummaryBar({ deals, stages }: { deals: DealDto[]; stages: StageDto[] }) {
   const open = deals.filter((deal) => deal.status === "open");
   const won = deals.filter((deal) => deal.status === "won").length;
   const totalCents = open.reduce((sum, deal) => sum + deal.amountCents, 0);
@@ -1060,7 +1053,12 @@ function DealCard({
     const payload: DealUpdateInput = {
       id: deal.id,
       status: next,
-      lostReason: next === "lost" ? (lostReasonDraft.trim() ? lostReasonDraft.trim() : null) : null,
+      lostReason:
+        next === "lost"
+          ? lostReasonDraft.trim()
+            ? lostReasonDraft.trim()
+            : null
+          : null,
     };
     const result = await updateDeal(payload);
     if (!result.ok) {
@@ -1116,7 +1114,10 @@ function DealCard({
         onPointerDown={(e) => e.stopPropagation()}
         className="mt-3 space-y-2 border-t border-border pt-3"
       >
-        <label className="block text-[11px] font-medium text-muted" htmlFor={`deal-status-${deal.id}`}>
+        <label
+          className="block text-[11px] font-medium text-muted"
+          htmlFor={`deal-status-${deal.id}`}
+        >
           Outcome
         </label>
         <select
@@ -1296,7 +1297,8 @@ function CalendarView({ slots = [] }: { slots?: { startsAt: Date; endsAt: Date }
         <CalendarClock className="h-5 w-5 text-accent" aria-hidden />
         <h3 className="mt-4 font-semibold text-text">Scheduling links</h3>
         <p className="mt-2 text-[13px] text-muted">
-          Share your link invitees choose a slot and confirmed bookings sync to Calendar and Timeline.
+          Share your link invitees choose a slot and confirmed bookings sync to Calendar
+          and Timeline.
         </p>
         <Link
           href="/m/aftaab"
@@ -1393,7 +1395,7 @@ function AutomationsView() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[12px] text-muted">Source</p>
-            <p className="mt-1 font-mono text-[13px] text-text">registry</p>
+              <p className="mt-1 font-mono text-[13px] text-text">registry</p>
             </div>
             <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[11px] text-muted">
               Loaded
@@ -1516,8 +1518,12 @@ function ReportsView({ reportExport }: { reportExport?: ShellReportExport }) {
                     CSV
                   </span>
                 </div>
-                <p className="mt-4 text-[13px] font-semibold text-text">{report.title}</p>
-                <p className="mt-1 min-h-10 text-[12px] text-muted">{report.description}</p>
+                <p className="mt-4 text-[13px] font-semibold text-text">
+                  {report.title}
+                </p>
+                <p className="mt-1 min-h-10 text-[12px] text-muted">
+                  {report.description}
+                </p>
                 <div className="mt-4 flex items-center justify-between">
                   <span className="rounded-full bg-bg px-2 py-0.5 font-mono text-[11px] text-subtle">
                     {report.id}
@@ -1587,7 +1593,8 @@ function ReportsView({ reportExport }: { reportExport?: ShellReportExport }) {
           <Filter className="h-5 w-5 text-accent" aria-hidden />
           <h3 className="mt-4 font-semibold text-text">Exports</h3>
           <p className="mt-2 text-[13px] text-muted">
-            Files generate on demand. If a run fails fix the issue and retry your history stays above.
+            Files generate on demand. If a run fails fix the issue and retry your
+            history stays above.
           </p>
         </article>
       </aside>
@@ -1610,9 +1617,7 @@ function TimelineView({
   return (
     <article className="rounded-modal border border-border bg-surface">
       <div className="border-b border-border p-5">
-        <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">
-          Timeline
-        </p>
+        <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">Timeline</p>
         <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-text">
           Events
         </h2>
@@ -1697,9 +1702,7 @@ function SettingsView() {
       <section className="space-y-4">
         <article className="rounded-modal border border-border bg-surface">
           <div className="border-b border-border p-5">
-            <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">
-              Setup
-            </p>
+            <p className="text-[12px] uppercase tracking-[0.16em] text-subtle">Setup</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-text">
               Workspace configuration
             </h2>
@@ -1945,11 +1948,7 @@ function DashboardSideCards({
   );
 }
 
-function ActivityTypeGrid({
-  items,
-}: {
-  items: DashboardSummary["activityCards"];
-}) {
+function ActivityTypeGrid({ items }: { items: DashboardSummary["activityCards"] }) {
   return (
     <section className="grid gap-4 lg:grid-cols-3">
       {items.map((activity) => (

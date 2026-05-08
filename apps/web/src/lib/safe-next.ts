@@ -1,7 +1,9 @@
 /**
  * Returns a safe same-origin path for post-login redirects (open-redirect safe).
  */
-export function sanitizeInternalNextPath(raw: string | undefined | null): string | null {
+export function sanitizeInternalNextPath(
+  raw: string | undefined | null,
+): string | null {
   if (raw == null || raw === "") {
     return null;
   }
@@ -19,6 +21,9 @@ export function sanitizeInternalNextPath(raw: string | undefined | null): string
   }
   return raw;
 }
+
+/** Set by middleware on protected requests so the app layout can pass `next` when the session cookie is stale. */
+export const CAIRNLY_INTENDED_NEXT_HEADER = "x-cairnly-next";
 
 /** Avoid redirect loops when ?next=/sign-in. */
 export function normalizePostAuthPath(path: string): string {

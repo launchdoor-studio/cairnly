@@ -1,9 +1,4 @@
-import type {
-  DealCreateInput,
-  DealListInput,
-  DealMoveStageInput,
-  DealUpdateInput,
-} from "@cairnly/core";
+import type { DealListInput, DealMoveStageInput, DealUpdateInput } from "@cairnly/core";
 import { type Db, deals, events, pipelines, stages } from "@cairnly/db";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";

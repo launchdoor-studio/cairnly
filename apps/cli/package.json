@@ -1,0 +1,23 @@
+{
+  "name": "@cairnly/cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "crm": "bin/crm"
+  },
+  "scripts": {
+    "check": "tsc --noEmit && biome check .",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@cairnly/db": "workspace:*",
+    "@cairnly/jobs": "workspace:*",
+    "better-auth": "^1.6.9",
+    "drizzle-orm": "latest",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "latest"
+  }
+}

@@ -1,10 +1,4 @@
-import type {
-  ContactDto,
-  DealDto,
-  EventDto,
-  StageDto,
-  TaskDto,
-} from "@cairnly/core";
+import type { ContactDto, DealDto, EventDto, StageDto, TaskDto } from "@cairnly/core";
 
 export type DashboardMetric = {
   label: string;
@@ -39,7 +33,11 @@ export type DashboardSummary = {
 
 function startOfUtcWeek(reference: Date) {
   const d = new Date(
-    Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), reference.getUTCDate()),
+    Date.UTC(
+      reference.getUTCFullYear(),
+      reference.getUTCMonth(),
+      reference.getUTCDate(),
+    ),
   );
   const day = d.getUTCDay();
   const daysFromMonday = (day + 6) % 7;

@@ -25,8 +25,8 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import type { AppActions, AppData } from "@/lib/app-data";
-import type { DashboardSummary } from "@/lib/dashboard-summary";
 import type { ContactCreateAction, ContactUpdateAction } from "@/lib/contact-mutations";
+import type { DashboardSummary } from "@/lib/dashboard-summary";
 import {
   type ActiveView,
   defaultNavItem,
@@ -684,9 +684,7 @@ function CommandPalette({
                 <Plus className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-medium text-text">
-                  Create…
-                </span>
+                <span className="block text-[13px] font-medium text-text">Create…</span>
                 <span className="block text-[12px] text-muted">
                   Opens the create panel for the current screen (C).
                 </span>
