@@ -1,4 +1,5 @@
 import { stderr } from "node:process";
+import { runEmailImapIdleSupervisor } from "@cairnly/api/jobs/email-imap-idle-supervisor";
 import { processEmailImapSyncAllJob } from "@cairnly/api/jobs/email-imap-worker";
 import {
   processReportExportBossJob,
@@ -14,12 +15,18 @@ export { QUEUE_EMAIL_IMAP_SYNC_ALL, QUEUE_REPORT_EXPORT };
 
 let bossInstance: PgBoss | null = null;
 let shutdownStarted = false;
+let imapIdleSupervisorAbort: AbortController | null = null;
 
 async function shutdownBoss(reason: string): Promise<void> {
-  if (shutdownStarted || !bossInstance) {
+  if (shutdownStarted) {
     return;
   }
   shutdownStarted = true;
+  imapIdleSupervisorAbort?.abort();
+  imapIdleSupervisorAbort = null;
+  if (!bossInstance) {
+    return;
+  }
   const b = bossInstance;
   bossInstance = null;
   try {
@@ -84,8 +91,24 @@ export async function startPgBossWorkers(): Promise<void> {
     await processEmailImapSyncAllJob(db);
   });
 
-  if (process.env.CAIRNLY_DISABLE_IMAP_SYNC !== "1") {
-    await boss.schedule(QUEUE_EMAIL_IMAP_SYNC_ALL, "*/5 * * * *", {}, { tz: "UTC" });
+  const imapSyncDisabled = process.env.CAIRNLY_DISABLE_IMAP_SYNC === "1";
+  const imapIdleDisabled = process.env.CAIRNLY_DISABLE_IMAP_IDLE === "1";
+
+  if (!imapSyncDisabled && !imapIdleDisabled) {
+    imapIdleSupervisorAbort = new AbortController();
+    void runEmailImapIdleSupervisor(db, imapIdleSupervisorAbort.signal).catch((err) => {
+      stderr.write(
+        `[cairnly-jobs] IMAP IDLE supervisor stopped: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    });
+  }
+
+  if (!imapSyncDisabled) {
+    const pollCron =
+      process.env.CAIRNLY_IMAP_POLL_CRON ?? (imapIdleDisabled ? "*/5 * * * *" : "");
+    if (pollCron.length > 0) {
+      await boss.schedule(QUEUE_EMAIL_IMAP_SYNC_ALL, pollCron, {}, { tz: "UTC" });
+    }
   }
 
   bossInstance = boss;

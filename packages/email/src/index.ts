@@ -5,8 +5,13 @@ export {
   refreshAccessToken,
 } from "./gmail-oauth";
 export {
+  type RunInboxImapIdleSessionInput,
+  runInboxImapIdleSession,
+} from "./imap-idle";
+export {
   fetchRecentFromImap,
   type ImapAuth,
+  mailboxMessageFromRawSource,
   type ParsedMailboxMessage,
 } from "./imap-sync";
 export {

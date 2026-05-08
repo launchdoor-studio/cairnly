@@ -59,6 +59,41 @@ export type ImapAuth =
   | { user: string; pass: string }
   | { user: string; accessToken: string };
 
+export async function mailboxMessageFromRawSource(
+  sourceUid: number,
+  source: Buffer,
+): Promise<ParsedMailboxMessage | null> {
+  const parsed = await simpleParser(source);
+  const messageIdRaw = parsed.messageId?.trim();
+  if (!messageIdRaw) {
+    return null;
+  }
+  const messageId = stripAngleAddr(messageIdRaw);
+  const inReplyTo = parsed.inReplyTo?.trim() ? stripAngleAddr(parsed.inReplyTo) : null;
+  const refs = referencesHeaderString(parsed.references);
+  const fromAddr =
+    parsed.from?.value?.[0]?.address?.trim().toLowerCase() ?? "(unknown)";
+  const toAddrs = addressRows(parsed.to)
+    .map((v) => v.address?.trim().toLowerCase())
+    .filter((a): a is string => Boolean(a));
+  const subject = parsed.subject?.trim() ?? "(no subject)";
+  const receivedAt = parsed.date ?? null;
+
+  return {
+    sourceUid,
+    messageId,
+    inReplyTo,
+    referencesHeader: refs,
+    threadRootMessageId: computeThreadRoot(messageId, refs, inReplyTo),
+    subject,
+    fromAddr,
+    toAddrs,
+    bodyText: parsed.text?.trim() ?? null,
+    bodyHtml: parsed.html ? String(parsed.html) : null,
+    receivedAt,
+  };
+}
+
 export async function fetchRecentFromImap(input: {
   host: string;
   port: number;
@@ -111,37 +146,10 @@ export async function fetchRecentFromImap(input: {
           continue;
         }
         highestUid = Math.max(highestUid, msg.uid);
-        const parsed = await simpleParser(msg.source);
-        const messageIdRaw = parsed.messageId?.trim();
-        if (!messageIdRaw) {
-          continue;
+        const row = await mailboxMessageFromRawSource(msg.uid, msg.source);
+        if (row) {
+          messages.push(row);
         }
-        const messageId = stripAngleAddr(messageIdRaw);
-        const inReplyTo = parsed.inReplyTo?.trim()
-          ? stripAngleAddr(parsed.inReplyTo)
-          : null;
-        const refs = referencesHeaderString(parsed.references);
-        const fromAddr =
-          parsed.from?.value?.[0]?.address?.trim().toLowerCase() ?? "(unknown)";
-        const toAddrs = addressRows(parsed.to)
-          .map((v) => v.address?.trim().toLowerCase())
-          .filter((a): a is string => Boolean(a));
-        const subject = parsed.subject?.trim() ?? "(no subject)";
-        const receivedAt = parsed.date ?? null;
-
-        messages.push({
-          sourceUid: msg.uid,
-          messageId,
-          inReplyTo,
-          referencesHeader: refs,
-          threadRootMessageId: computeThreadRoot(messageId, refs, inReplyTo),
-          subject,
-          fromAddr,
-          toAddrs,
-          bodyText: parsed.text?.trim() ?? null,
-          bodyHtml: parsed.html ? String(parsed.html) : null,
-          receivedAt,
-        });
       }
     } finally {
       lock.release();

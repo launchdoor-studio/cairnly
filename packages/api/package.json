@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./gmail-oauth-callback": "./src/gmail-oauth-callback.ts",
+    "./jobs/email-imap-idle-supervisor": "./src/jobs/email-imap-idle-supervisor.ts",
     "./jobs/email-imap-worker": "./src/jobs/email-imap-worker.ts",
     "./repositories/email-repository": "./src/repositories/email-repository.ts",
     "./repositories/event-repository": "./src/repositories/event-repository.ts",

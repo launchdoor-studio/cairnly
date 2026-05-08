@@ -23,6 +23,7 @@ import {
   refreshAccessToken,
   renderEmailTemplate,
   rewriteLinksForTracking,
+  runInboxImapIdleSession,
   sendWorkspaceSmtp,
   smtpConfigFromEnv,
 } from "@cairnly/email";
@@ -247,6 +248,163 @@ export function createEmailService(deps: {
     await ingestInboundBatch(acc, messages, highestUid);
   }
 
+  async function listSyncableMailAccounts(): Promise<AccountRow[]> {
+    const out: AccountRow[] = [];
+    const ids = await db.select({ id: workspaces.id }).from(workspaces);
+    for (const { id: workspaceId } of ids) {
+      const settings = await resolveEmailSettings(workspaceId);
+      if (!settings.enabled) {
+        continue;
+      }
+      const accounts = await emailRepo.listAccounts(workspaceId);
+      for (const acc of accounts) {
+        if (acc.provider === "imap" || acc.provider === "gmail") {
+          out.push(acc);
+        }
+      }
+    }
+    return out;
+  }
+
+  function readLastImapUid(acc: AccountRow): number {
+    const st = acc.syncState as Record<string, unknown> | null;
+    const raw = st?.lastImapUid;
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      return Math.floor(raw);
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      const n = Number.parseInt(raw, 10);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  }
+
+  async function runImapAccountIdleUntilAbort(
+    acc: AccountRow,
+    signal: AbortSignal,
+  ): Promise<void> {
+    let backoffMs = 3000;
+    const mutableAcc = { ...acc } as AccountRow;
+
+    while (!signal.aborted) {
+      try {
+        const settings = await resolveEmailSettings(mutableAcc.workspaceId);
+        if (!settings.enabled) {
+          return;
+        }
+
+        const fresh = await emailRepo.findAccount({
+          id: mutableAcc.id,
+          workspaceId: mutableAcc.workspaceId,
+        });
+        if (!fresh) {
+          return;
+        }
+        Object.assign(mutableAcc, fresh);
+
+        if (mutableAcc.provider === "imap") {
+          const cfg = mutableAcc.imapConfig as Record<string, unknown> | null;
+          if (!cfg || typeof cfg.host !== "string") {
+            return;
+          }
+          const host = cfg.host as string;
+          const port = typeof cfg.port === "number" ? cfg.port : 993;
+          const secure = cfg.secure !== false;
+          const username =
+            typeof cfg.username === "string" ? cfg.username : mutableAcc.address;
+          const password = typeof cfg.password === "string" ? cfg.password : "";
+          if (!password) {
+            return;
+          }
+
+          if (readLastImapUid(mutableAcc) === 0) {
+            await syncOneImapAccount(mutableAcc);
+            const seeded = await emailRepo.findAccount({
+              id: mutableAcc.id,
+              workspaceId: mutableAcc.workspaceId,
+            });
+            if (seeded) {
+              Object.assign(mutableAcc, seeded);
+            }
+          }
+
+          const lastUid = readLastImapUid(mutableAcc);
+
+          await runInboxImapIdleSession({
+            host,
+            port,
+            secure,
+            auth: { user: username, pass: password },
+            mailbox: "INBOX",
+            initialLastUid: lastUid,
+            signal,
+            onBatch: async (messages, highestUid) => {
+              await ingestInboundBatch(mutableAcc, messages, highestUid);
+            },
+          });
+          return;
+        }
+
+        if (mutableAcc.provider === "gmail") {
+          const oauth = createGoogleOAuthClient();
+          const tok = mutableAcc.oauthToken as Record<string, unknown> | null;
+          const refresh =
+            typeof tok?.refresh_token === "string"
+              ? tok.refresh_token
+              : typeof tok?.refreshToken === "string"
+                ? tok.refreshToken
+                : null;
+          if (!oauth || !refresh) {
+            return;
+          }
+
+          if (readLastImapUid(mutableAcc) === 0) {
+            await syncOneGmailAccount(mutableAcc);
+            const seeded = await emailRepo.findAccount({
+              id: mutableAcc.id,
+              workspaceId: mutableAcc.workspaceId,
+            });
+            if (seeded) {
+              Object.assign(mutableAcc, seeded);
+            }
+          }
+
+          let accessToken: string;
+          try {
+            const refreshed = await refreshAccessToken(oauth, refresh);
+            accessToken = refreshed.accessToken;
+          } catch {
+            throw new Error("gmail_token_refresh_failed");
+          }
+
+          const lastUid = readLastImapUid(mutableAcc);
+
+          await runInboxImapIdleSession({
+            host: "imap.gmail.com",
+            port: 993,
+            secure: true,
+            auth: { user: mutableAcc.address, accessToken },
+            mailbox: "INBOX",
+            initialLastUid: lastUid,
+            signal,
+            onBatch: async (messages, highestUid) => {
+              await ingestInboundBatch(mutableAcc, messages, highestUid);
+            },
+          });
+          return;
+        }
+
+        return;
+      } catch {
+        if (signal.aborted) {
+          return;
+        }
+        await new Promise((r) => setTimeout(r, backoffMs));
+        backoffMs = Math.min(backoffMs * 2, 120_000);
+      }
+    }
+  }
+
   return {
     async listAccounts(user: SessionUser) {
       const rows = await emailRepo.listAccounts(user.workspaceId);
@@ -435,6 +593,14 @@ export function createEmailService(deps: {
       });
 
       return { message: toEmailMessageDto(row) };
+    },
+
+    async listSyncableMailAccounts() {
+      return listSyncableMailAccounts();
+    },
+
+    async runImapAccountIdleUntilAbort(acc: AccountRow, signal: AbortSignal) {
+      return runImapAccountIdleUntilAbort(acc, signal);
     },
 
     async syncAllImapAccounts(): Promise<void> {
